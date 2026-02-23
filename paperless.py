@@ -37,16 +37,48 @@ class PaperlessClient:
         response.raise_for_status()
         return response.json()
 
+class LiteLLMClient:
+    def __init__(self, base_url: str, model: str, api_key: str = ""):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+    def chat(self, prompt: str, system: str = None) -> str:
+        """Send a prompt and return the assistant's reply as a string."""
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers=self.headers,
+            json={"model": self.model, "messages": messages},
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+
+
 if __name__ == "__main__":
     PAPERLESS_URL = "http://192.168.68.222:8000"
     PAPERLESS_TOKEN = "17d9204da268096501d75be0ed0e038c8642c6db"
 
+    LITELLM_URL = "http://192.168.68.222:4040"
+    LITELLM_MODEL = "claude-gemini-12"
+    LITELLM_API_KEY = "sk-_VrlNO-SBmfFGD-RMezwWQ"
+
     ngx = PaperlessClient(PAPERLESS_URL, PAPERLESS_TOKEN)
     document_types = ngx.get_document_types()
-
     receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
-    # print(receipt_id)
     receipts = ngx.get_document_ids_by_type(document_type_id=17)
     document = ngx.get_document(receipts[0])
     print(document)
+
+    litellm = LiteLLMClient(LITELLM_URL, LITELLM_MODEL, LITELLM_API_KEY)
+    reply = litellm.chat("What is the capital of France?", system="You are a helpful assistant.")
+    print("LiteLLM reply:", reply)
+
 
