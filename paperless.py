@@ -1,7 +1,8 @@
 import requests
+from pathlib import Path
 
 
-class PaperlessClient:
+class PaperlessNGX:
     def __init__(self, base_url: str, token: str):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
@@ -37,7 +38,7 @@ class PaperlessClient:
         response.raise_for_status()
         return response.json()
 
-class LiteLLMClient:
+class LiteLLM:
     def __init__(self, base_url: str, model: str, api_key: str = ""):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -45,6 +46,14 @@ class LiteLLMClient:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
         }
+
+    def extract(self, prompt: str, document_type: str) -> dict:
+        prompts_dir = Path(__file__).parent / "prompts"
+        prompt_file = next(prompts_dir.glob(f"{document_type}.txt"), None)
+        if prompt_file is None:
+            raise FileNotFoundError(f"No prompt file found for document type: {document_type}")
+        system = prompt_file.read_text()
+        return self.chat(prompt=prompt, system=system)
 
     def chat(self, prompt: str, system: str = None) -> str:
         """Send a prompt and return the assistant's reply as a string."""
@@ -70,15 +79,17 @@ if __name__ == "__main__":
     LITELLM_MODEL = "claude-gemini-12"
     LITELLM_API_KEY = "sk-_VrlNO-SBmfFGD-RMezwWQ"
 
-    ngx = PaperlessClient(PAPERLESS_URL, PAPERLESS_TOKEN)
+    ngx = PaperlessNGX(PAPERLESS_URL, PAPERLESS_TOKEN)
     document_types = ngx.get_document_types()
     receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
     receipts = ngx.get_document_ids_by_type(document_type_id=17)
     document = ngx.get_document(receipts[0])
     print(document)
 
-    litellm = LiteLLMClient(LITELLM_URL, LITELLM_MODEL, LITELLM_API_KEY)
-    reply = litellm.chat("What is the capital of France?", system="You are a helpful assistant.")
-    print("LiteLLM reply:", reply)
+    litellm = LiteLLM(LITELLM_URL, LITELLM_MODEL, LITELLM_API_KEY)
+    prompt = litellm.extract(prompt=document["content"], document_type="receipt")
+    print(prompt)
+    #reply = litellm.chat("What is the capital of France?", system="You are a helpful assistant.")
+    #print("LiteLLM reply:", reply)
 
 

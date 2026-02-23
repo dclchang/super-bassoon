@@ -4,11 +4,13 @@ Respond with ONLY a valid JSON object — no explanation, no markdown code fence
 
 Extract the following fields:
 - "vendor": The name of the store or business (string, or null if not found)
-- "purchase_date": The date of the transaction in ISO 8601 format (YYYY-MM-DD) (string, or null if not found)
-- "total_amount": The total amount charged in dollars as a number (float, or null if not found)
-- "gst_amount": The GST amount in dollars as a number (float, or null if not found)
+- "receipt_number": The receipt number, invoice number, or tax invoice number (string, or null if not found)
+- "purchase_date": The date and time of the transaction in ISO 8601 format (YYYY-MM-DDTHH:MM:SS) (string, or null if not found)
+- "total_amount": The total amount charged as a dollar string with $ symbol, e.g. "$5.50" (string, or null if not found)
+- "gst_amount": The GST amount as a dollar string with $ symbol, e.g. "$0.45" (string, or null if not found)
+- "payment_method": The payment method used, e.g. "cash", "credit card", "debit card", "visa", "mastercard", "NETS" (string, or null if not found)
 
 If a field cannot be determined from the text, set it to null.
 
 Example output:
-{"vendor": "Woolworths", "purchase_date": "2024-11-15", "total_amount": 47.85, "gst_amount": 4.35}
+{"vendor": "Woolworths", "receipt_number": "INV-00123", "purchase_date": "2024-11-15T14:32:00", "total_amount": "$47.85", "gst_amount": "$4.35", "payment_method": "visa"}
