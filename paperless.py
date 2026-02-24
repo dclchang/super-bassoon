@@ -1,5 +1,11 @@
+import subprocess
 import requests
 from pathlib import Path
+
+
+def get_secret(reference: str) -> str:
+    result = subprocess.run(["op", "read", reference], capture_output=True, text=True, check=True)
+    return result.stdout.strip()
 
 
 class PaperlessNGX:
@@ -73,11 +79,11 @@ class LiteLLM:
 
 if __name__ == "__main__":
     PAPERLESS_URL = "http://192.168.68.222:8000"
-    PAPERLESS_TOKEN = "17d9204da268096501d75be0ed0e038c8642c6db"
+    PAPERLESS_TOKEN = get_secret("op://homelab/paperless-api-token/credential")
 
     LITELLM_URL = "http://192.168.68.222:4040"
-    LITELLM_MODEL = "claude-gemini-12"
-    LITELLM_API_KEY = "sk-_VrlNO-SBmfFGD-RMezwWQ"
+    LITELLM_MODEL = "qwen2.5:14b"
+    LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential")
 
     ngx = PaperlessNGX(PAPERLESS_URL, PAPERLESS_TOKEN)
     document_types = ngx.get_document_types()
