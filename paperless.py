@@ -42,7 +42,9 @@ class PaperlessNGX:
         url = f"{self.base_url}/api/documents/{document_id}/"
         response = self.session.get(url)
         response.raise_for_status()
-        return response.json()
+        js = response.json()
+        js["document_id"] = document_id  # add ID to the returned JSON for convenience
+        return js
 
 class LiteLLM:
     def __init__(self, base_url: str, model: str, api_key: str = ""):
@@ -82,18 +84,17 @@ if __name__ == "__main__":
     PAPERLESS_TOKEN = get_secret("op://homelab/paperless-api-token/credential")
 
     LITELLM_URL = "http://192.168.68.222:4040"
-    LITELLM_MODEL = "qwen2.5:14b"
+    LITELLM_MODEL = "claude-gemini-12"
     LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential")
 
     ngx = PaperlessNGX(PAPERLESS_URL, PAPERLESS_TOKEN)
     document_types = ngx.get_document_types()
     receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
     receipts = ngx.get_document_ids_by_type(document_type_id=17)
-    document = ngx.get_document(receipts[0])
-    print(document)
+    receipt = ngx.get_document(receipts[5])
 
     litellm = LiteLLM(LITELLM_URL, LITELLM_MODEL, LITELLM_API_KEY)
-    prompt = litellm.extract(prompt=document["content"], document_type="receipt")
+    prompt = litellm.extract(prompt=receipt["content"], document_type="receipt")
     print(prompt)
     #reply = litellm.chat("What is the capital of France?", system="You are a helpful assistant.")
     #print("LiteLLM reply:", reply)
