@@ -2,7 +2,7 @@ import requests
 from pathlib import Path
 import json
 import re
-from typing import Union
+#from typing import Union
 
 
 class LiteLLM:
@@ -46,7 +46,7 @@ class LiteLLM:
         raw = self.chat(prompt=prompt_text, system=system)
         return self._parse_response(raw, metadata)
 
-    def _parse_response(self, raw: str, metadata: Union[dict, None]) -> Union[dict, str]:
+    def _parse_response(self, raw: str, metadata: dict) -> dict:
         """Clean up a raw model reply and attempt to return a dict.
 
         - strip code fences and surrounding whitespace
