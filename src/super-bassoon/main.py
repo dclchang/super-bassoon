@@ -1,7 +1,6 @@
-"""Executable script with example usage of the library classes."""
-
-from paperless import PaperlessNGX, get_secret
 from litellm import LiteLLM
+from op import get_secret
+from paperless import PaperlessNGX
 
 
 # configuration constants used by example; could be made customizable later

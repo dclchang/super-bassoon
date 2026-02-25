@@ -1,13 +1,5 @@
-import subprocess
 import requests
-
-# the lightweight PaperlessNGX client lives here; the LLM code is in litellm.py
 from litellm import LiteLLM
-
-
-def get_secret(reference: str) -> str:
-    result = subprocess.run(["op", "read", reference], capture_output=True, text=True, check=True)
-    return result.stdout.strip()
 
 
 class PaperlessNGX:
