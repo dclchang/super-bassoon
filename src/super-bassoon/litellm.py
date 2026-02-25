@@ -113,11 +113,11 @@ class LiteLLM:
         template = prompt_file.read_text()
 
         system_msg = (
-            "You are a reviewer assistant.  Compare the provided JSON data to the "
+            "You are a reviewer assistant. Compare the provided JSON data to the "
             "description in the prompt template and determine if the values are "
-            "appropriate and complete.  Respond with a short analysis and a score "
-            "from 0 to 100 (higher is better). Do not add any extra prose outside "
-            "the analysis."
+            "appropriate and complete. Respond with only a number from 0 to 100, "
+            "where 100 means the JSON perfectly matches the prompt template"
+            "Do not return anything except the numeric score."
         )
 
         user_msg = (
