@@ -8,8 +8,9 @@ PAPERLESS_URL = "http://192.168.68.222:8000"
 PAPERLESS_TOKEN = get_secret("op://homelab/paperless-api-token/credential")
 
 LITELLM_URL = "http://192.168.68.222:4040"
-LITELLM_MODEL = "claude-gemini-12"
 LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential")
+EXTRACTOR_MODEL = "claude-gemini-12"
+REVIEWER_MODEL = "falcon-7b"
 
 
 def main():
@@ -31,7 +32,7 @@ def main():
     print(receipt)
     
     print("Extracting structured data from receipt using LiteLLM...")
-    extractor = LiteLLM(LITELLM_URL, LITELLM_MODEL, LITELLM_API_KEY)
+    extractor = LiteLLM(LITELLM_URL, EXTRACTOR_MODEL, LITELLM_API_KEY)
     try:
         extraction_result = extractor.extract(
             document=receipt,
@@ -40,7 +41,7 @@ def main():
         print("Here we go:")
         print(extraction_result)
 
-        reviewer = LiteLLM(LITELLM_URL, "falcon-7b", LITELLM_API_KEY)
+        reviewer = LiteLLM(LITELLM_URL, REVIEWER_MODEL, LITELLM_API_KEY)
         score = reviewer.review(extracted=extraction_result, document_type="receipt")
         print("")
         print(f"Review score: {score:.1f}/100")
