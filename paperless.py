@@ -90,12 +90,27 @@ if __name__ == "__main__":
     ngx = PaperlessNGX(PAPERLESS_URL, PAPERLESS_TOKEN)
     document_types = ngx.get_document_types()
     receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
-    receipts = ngx.get_document_ids_by_type(document_type_id=17)
-    receipt = ngx.get_document(receipts[5])
+    if receipt_id is None:
+        raise RuntimeError("No document type named 'receipt' found in PaperlessNGX")
 
+    receipts = ngx.get_document_ids_by_type(document_type_id=receipt_id)
+    if not receipts:
+        raise RuntimeError(f"No documents found for document type id {receipt_id}")
+
+    # pick a sample receipt; make sure the index exists
+    index = 7
+    if index >= len(receipts):
+        index = 0
+    receipt = ngx.get_document(receipts[index])
+    print(receipt)
+    
+    print("Extracting structured data from receipt using LiteLLM...")
     litellm = LiteLLM(LITELLM_URL, LITELLM_MODEL, LITELLM_API_KEY)
-    prompt = litellm.extract(prompt=receipt["content"], document_type="receipt")
-    print(prompt)
+    try:
+        extraction_result = litellm.extract(prompt=receipt["content"], document_type="receipt")
+        print(extraction_result)
+    except Exception as exc:
+        print("failed to extract with LiteLLM:", exc)
     #reply = litellm.chat("What is the capital of France?", system="You are a helpful assistant.")
     #print("LiteLLM reply:", reply)
 
