@@ -3,6 +3,7 @@ from op import get_secret
 from paperless import PaperlessNGX
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+import uuid
 
 # configuration constants used by example; could be made customizable later
 PAPERLESS_URL = "http://192.168.68.222:8000"
@@ -13,6 +14,9 @@ LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-claude-code/c
 EXTRACTOR_MODEL = "openai/claude-gemini-12"
 REVIEWER_MODEL = "openai/falcon-7b"
 EMBEDDER_MODEL = "openai/nomic-embed-text"
+
+QDRANT_URL = "http://192.168.68.222:6333"
+QDRANT_COLLECTION = "receipt_embeddings"
 
 
 def main():
@@ -31,21 +35,56 @@ def main():
     if index >= len(receipts):
         index = 0
     receipt = ngx.get_document(receipts[index])
-    print(receipt)
     
     print("Extracting structured data from receipt using LiteLLM...")
     llm = LlmProxy(LITELLM_URL, LITELLM_API_KEY)
     try:
-        extraction_result = llm.extract(
+        extraction = llm.extract(
             model=EXTRACTOR_MODEL,
             document=receipt,
             document_type="receipt",
         )
-        print("Here we go:")
-        print(extraction_result)
 
-        score = llm.review(model=REVIEWER_MODEL, extracted=extraction_result, document_type="receipt")
+        score = llm.review(model=REVIEWER_MODEL, extracted=extraction, document_type="receipt")
         print(f"Review score: {score:.1f}/100")
+
+        summary = llm.summarise(model=EXTRACTOR_MODEL, extracted=extraction, document_type="receipt")
+        print(summary)
+
+        print("Generating embedding for receipt summary...")
+        vector = llm.embed(model=EMBEDDER_MODEL, text=summary)
+        print(f"Embedding vector (first 5 dimensions): {vector[:5]}")
+
+        extraction["summary"] = summary  # add summary to metadata for storage
+        client = QdrantClient(QDRANT_URL)
+
+        if not client.collection_exists(QDRANT_COLLECTION):
+            client.create_collection(
+                collection_name=QDRANT_COLLECTION,
+                vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+            )
+
+
+        client.upsert(
+            collection_name=QDRANT_COLLECTION,
+            points=[
+                PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=vector,
+                    payload=extraction,  # store the entire extraction + summary as payload
+                )
+            ],
+        )
+
+
+        # if score >= 80:
+        #     print("Generating embedding for receipt data...")
+        #     embedding = llm.embed(model=EMBEDDER_MODEL, text=json.dumps(extraction_result))
+        #     print(f"Embedding vector (first 5 dimensions): {embedding[:5]}")
+
+        #     # Example of storing the embedding in Qdrant
+        #     qdrant = QdrantClient(QDRANT_URL)
+        #     embedding = llm.embed(model=EMBEDDER_MODEL, text=json.dumps(extraction_result))
 
     except Exception as exc:
         print("failed to extract with LiteLLM:", exc)

@@ -74,6 +74,21 @@ class LlmProxy:
             for k, v in metadata.items():
                 result.setdefault(k, v)
         return result
+    
+    def summarise(self, model: str, extracted: dict, document_type: str) -> str:
+        """Generate a concise summary of the extracted data."""
+        system_msg = (
+            f"You are a data processing assistant. Your task is to convert structered JSON that represents a {document_type} into a single, concise, natural language paragraph."
+            "Do not return anu markdown (no bolding, headers or bullet points)."
+            "Be concise and always start with 'Receipt from [Vendor]...', no other start of the sentence is acceptable."
+        )
+
+        user_msg = (
+            f"Extracted JSON:\n{json.dumps(extracted, indent=2)}\n\n"
+        )
+
+        summary = self.chat(model=model, prompt=user_msg, system=system_msg)
+        return summary.strip()
 
     def review(self, model: str, extracted: dict, document_type: str) -> float:
         """Ask the LLM to judge an extraction against the prompt template."""
@@ -105,3 +120,8 @@ class LlmProxy:
         
         score = float(m.group(1))
         return max(0.0, min(100.0, score))
+    
+    def embed(self, model: str, text: str) -> list[float]:
+        """Get an embedding vector for the given text."""
+        response = litellm.embedding(model=model, input=[text])
+        return response['data'][0]['embedding']
