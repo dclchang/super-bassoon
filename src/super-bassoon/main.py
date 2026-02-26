@@ -91,4 +91,6 @@ def main():
 
 
 if __name__ == "__main__":
+    value = uuid.uuid5("hello world", str(1234))
+    print(str(value))
     main()
