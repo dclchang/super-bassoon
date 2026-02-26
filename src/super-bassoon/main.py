@@ -3,6 +3,7 @@ from op import get_secret
 from paperless import PaperlessNGX
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+from vectordb import VectorDb
 import uuid
 
 # configuration constants used by example; could be made customizable later
@@ -56,41 +57,14 @@ def main():
         print(f"Embedding vector (first 5 dimensions): {vector[:5]}")
 
         extraction["summary"] = summary  # add summary to metadata for storage
-        client = QdrantClient(QDRANT_URL)
 
-        if not client.collection_exists(QDRANT_COLLECTION):
-            client.create_collection(
-                collection_name=QDRANT_COLLECTION,
-                vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-            )
+        vectordb = VectorDb(url=QDRANT_URL, collection_name=QDRANT_COLLECTION)
+        vectordb.upsert(vector=vector, payload=extraction)
 
-
-        client.upsert(
-            collection_name=QDRANT_COLLECTION,
-            points=[
-                PointStruct(
-                    id=str(uuid.uuid4()),
-                    vector=vector,
-                    payload=extraction,  # store the entire extraction + summary as payload
-                )
-            ],
-        )
-
-
-        # if score >= 80:
-        #     print("Generating embedding for receipt data...")
-        #     embedding = llm.embed(model=EMBEDDER_MODEL, text=json.dumps(extraction_result))
-        #     print(f"Embedding vector (first 5 dimensions): {embedding[:5]}")
-
-        #     # Example of storing the embedding in Qdrant
-        #     qdrant = QdrantClient(QDRANT_URL)
-        #     embedding = llm.embed(model=EMBEDDER_MODEL, text=json.dumps(extraction_result))
 
     except Exception as exc:
         print("failed to extract with LiteLLM:", exc)
 
 
 if __name__ == "__main__":
-    value = uuid.uuid5("hello world", str(1234))
-    print(str(value))
     main()

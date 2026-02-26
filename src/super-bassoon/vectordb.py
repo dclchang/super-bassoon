@@ -1,3 +1,4 @@
+from op import get_secret
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import uuid
@@ -6,7 +7,7 @@ class VectorDb:
     def __init__(self, url: str, collection_name: str):
         self.client = QdrantClient(url=url)
         self.collection_name = collection_name
-
+        self.namespace = uuid.UUID(get_secret("op://homelab/qdrant-namespace/credential"))
         if not self.client.collection_exists(self.collection_name):
             self.client.create_collection(
                 collection_name=self.collection_name,
@@ -14,19 +15,15 @@ class VectorDb:
             )
 
     def upsert(self, vector: list[float], payload: dict):
+        qdrant_id = str(uuid.uuid5(self.namespace, str(payload["document_id"])))
         self.client.upsert(
             collection_name=self.collection_name,
             points=[
                 PointStruct(
-                    id=str(uuid.uuid4()),
+                    id=qdrant_id,
                     vector=vector,
                     payload=payload,  # store the entire extraction + summary as payload
                 )
             ],
         )
-
-
-    def upsert_point(self, point_id: str, vector: list[float], payload: dict):
-        point = PointStruct(id=point_id, vector=vector, payload=payload)
-        self.client.upsert(collection_name=self.collection_name, points=[point])
 
