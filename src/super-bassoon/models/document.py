@@ -6,7 +6,7 @@ class Document(BaseModel):
     #created = peewee.DateTimeField()
     #added = peewee.DateTimeField()
     content = peewee.TextField()
-    content_hash = peewee.CharField(max_length=64)  # store a hash of the content for quick comparisons
+    hash = peewee.CharField(max_length=64)  # store a hash of the content for quick comparisons
     status = peewee.CharField(max_length=20, default="new")  # e.g. "new", "processed", "error"
 
     class Meta:

@@ -25,10 +25,14 @@ class PaperlessNGX:
         url = f"{self.base_url}/api/document_types/"
         return self._get_all_pages(url)
 
-    def get_document_ids_by_type(self, document_type_id: int) -> list[int]:
+    def get_document_ids_by_type(self, document_type: str) -> list[int]:
         """Return all document IDs that belong to the given document type ID."""
+        document_types = self.get_document_types()
+        type_id = next((dt["id"] for dt in document_types if dt["name"] == document_type), None)
+        if type_id is None:
+            raise RuntimeError(f"No document type named '{document_type}' found in PaperlessNGX")
         url = f"{self.base_url}/api/documents/"
-        documents = self._get_all_pages(url, params={"document_type__id": document_type_id})
+        documents = self._get_all_pages(url, params={"document_type__id": type_id})
         return [doc["id"] for doc in documents]
 
     def get_document(self, document_id: int) -> dict:
