@@ -1,7 +1,8 @@
-from litellm import LiteLLM
+from llmproxy import LlmProxy
 from op import get_secret
 from paperless import PaperlessNGX
-
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
 
 # configuration constants used by example; could be made customizable later
 PAPERLESS_URL = "http://192.168.68.222:8000"
@@ -9,8 +10,9 @@ PAPERLESS_TOKEN = get_secret("op://homelab/paperless-api-token/credential")
 
 LITELLM_URL = "http://192.168.68.222:4040"
 LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential")
-EXTRACTOR_MODEL = "claude-gemini-12"
-REVIEWER_MODEL = "falcon-7b"
+EXTRACTOR_MODEL = "openai/claude-gemini-12"
+REVIEWER_MODEL = "openai/falcon-7b"
+EMBEDDER_MODEL = "openai/nomic-embed-text"
 
 
 def main():
@@ -32,18 +34,17 @@ def main():
     print(receipt)
     
     print("Extracting structured data from receipt using LiteLLM...")
-    extractor = LiteLLM(LITELLM_URL, EXTRACTOR_MODEL, LITELLM_API_KEY)
+    llm = LlmProxy(LITELLM_URL, LITELLM_API_KEY)
     try:
-        extraction_result = extractor.extract(
+        extraction_result = llm.extract(
+            model=EXTRACTOR_MODEL,
             document=receipt,
             document_type="receipt",
         )
         print("Here we go:")
         print(extraction_result)
 
-        reviewer = LiteLLM(LITELLM_URL, REVIEWER_MODEL, LITELLM_API_KEY)
-        score = reviewer.review(extracted=extraction_result, document_type="receipt")
-        print("")
+        score = llm.review(model=REVIEWER_MODEL, extracted=extraction_result, document_type="receipt")
         print(f"Review score: {score:.1f}/100")
 
     except Exception as exc:

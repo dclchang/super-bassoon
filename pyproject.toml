@@ -12,7 +12,8 @@ license = {text = "MIT"}
 requires-python = ">=3.9"
 dependencies = [
     "requests",
-    "qdrant-client"
+    "qdrant-client",
+    "litellm"
 ]
 
 [project.scripts]
