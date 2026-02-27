@@ -5,6 +5,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from vectordb import VectorDb
 import uuid
+import json
 
 # configuration constants used by example; could be made customizable later
 PAPERLESS_URL = "http://192.168.68.222:8000"
@@ -22,14 +23,14 @@ QDRANT_COLLECTION = "receipt_embeddings"
 
 def main():
     ngx = PaperlessNGX(PAPERLESS_URL, PAPERLESS_TOKEN)
-    document_types = ngx.get_document_types()
-    receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
-    if receipt_id is None:
-        raise RuntimeError("No document type named 'receipt' found in PaperlessNGX")
+    # document_types = ngx.get_document_types()
+    # receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
+    # if receipt_id is None:
+    #     raise RuntimeError("No document type named 'receipt' found in PaperlessNGX")
 
-    receipts = ngx.get_document_ids_by_type(document_type_id=receipt_id)
+    receipts = ngx.get_document_ids_by_type(document_type='receipt')
     if not receipts:
-        raise RuntimeError(f"No documents found for document type id {receipt_id}")
+        raise RuntimeError(f"No documents found for document type 'receipt'")
 
     # pick a sample receipt; make sure the index exists
     index = 7
