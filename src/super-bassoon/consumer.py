@@ -1,5 +1,4 @@
-import datetime
-import hashlib
+import json
 from models.document import Document
 from models.base import db
 from op import get_secret
@@ -15,31 +14,31 @@ class Consumer:
         self.embedding_model = embedding_model
 
     def consume(self):
-        pending_docs = Document.select().where((Document.status == 'pending') & (Document.document_type == 'receipt'))
+        dt = "receipt"  # for now, hardcode to just process receipts; could be made dynamic later
+        pending_docs = Document.select().where((Document.status == 'pending') & (Document.type == dt))
         for record in pending_docs:
             with db.atomic():
                 record.status = "processing"
                 record.save()
 
-            doc_id = record.document_id
-            doc_type = record.document_type
             content = record.content
+            extraction = self.llm.extract(
+                model=self.extractor_model,
+                document=json.loads(content),  # Convert the string back to a dict for processing
+                document_type=dt,
+            )
 
-            print(f"Processing document ID {doc_id}...")
-
-            # 1. Extract structured data using the LLM
-            extraction = self.llm.extract(model=self.extractor_model, document=)
-
-            extraction = self.llm.extract(model=self.extractor_model, text=content, document_type=doc_type)
-
-            # 2. Review the extraction for quality; if it's below a threshold, skip vectorization
-            score = self.llm.review(model=self.review_model, extracted=extraction, document_type=doc_type)
-
-            summary = self.llm.summarise(model=self.extractor_model, extracted=extraction, document_type=doc_type)
+            score = self.llm.review(model=self.review_model, extracted=extraction, document_type=record.type)
+            summary = self.llm.summarise(model=self.extractor_model, extracted=extraction, document_type=record.type)
 
             vector = self.llm.embed(model=self.embedding_model, text=summary)
-            vectordb = VectorDb(url=self.vector_db_url, collection_name=f"{doc_type}_collection")
+            vectordb = VectorDb(url=self.vector_db_url, collection_name=f"{record.type}_collection")
             vectordb.upsert(vector=vector, payload=extraction)
+
+            with db.atomic():
+                record.status = "processed"
+                record.score = score  # store the review score in the DB for future reference
+                record.save()
 
 
 

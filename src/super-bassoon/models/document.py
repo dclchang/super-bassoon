@@ -10,6 +10,7 @@ class Document(BaseModel):
     content = peewee.TextField()
     hash = peewee.CharField(max_length=64)  # store a hash of the content for quick comparisons
     status = peewee.CharField(max_length=20, default="new")  # e.g. "new", "processed", "error"
+    score = peewee.FloatField(default=0)  # optional field to store review score from LLM
 
     class Meta:
         table_name = "documents"

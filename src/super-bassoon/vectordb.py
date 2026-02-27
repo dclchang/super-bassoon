@@ -27,3 +27,10 @@ class VectorDb:
             ],
         )
 
+    def query(self, query: str, collection_name: str, top_k: int = 5) -> list[dict]:
+        # This is a placeholder implementation; in a real implementation, you would first embed the query using the same embedding model
+        # and then perform a vector search against the collection. For simplicity, we'll just return an empty list here.
+        retval = self.client.query(query_text=query, collection_name=collection_name, limit=top_k)
+        return retval.points
+
+
