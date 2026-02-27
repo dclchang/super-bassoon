@@ -38,6 +38,7 @@ class Consumer:
             with db.atomic():
                 record.status = "processed"
                 record.score = score  # store the review score in the DB for future reference
+                record.summary = summary  # store the summary in the DB for future reference
                 record.save()
 
 
