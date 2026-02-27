@@ -31,7 +31,7 @@ class Consumer:
             score = self.llm.review(model=self.review_model, extracted=extraction, document_type=record.type)
             summary = self.llm.summarise(model=self.extractor_model, extracted=extraction, document_type=record.type)
 
-            vector = self.llm.embed(model=self.embedding_model, text=summary)
+            vector = self.llm.vectorise(model=self.embedding_model, text=summary)
             vectordb = VectorDb(url=self.vector_db_url, collection_name=f"{record.type}_collection")
             vectordb.upsert(vector=vector, payload=extraction)
 

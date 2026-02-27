@@ -121,7 +121,7 @@ class LlmProxy:
         score = float(m.group(1))
         return max(0.0, min(100.0, score))
     
-    def embed(self, model: str, text: str) -> list[float]:
+    def vectorise(self, model: str, text: str) -> list[float]:
         """Get an embedding vector for the given text."""
         response = litellm.embedding(model=model, input=[text])
         return response['data'][0]['embedding']

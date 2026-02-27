@@ -54,7 +54,7 @@ def main():
         print(summary)
 
         print("Generating embedding for receipt summary...")
-        vector = llm.embed(model=EMBEDDER_MODEL, text=summary)
+        vector = llm.vectorise(model=EMBEDDER_MODEL, text=summary)
         print(f"Embedding vector (first 5 dimensions): {vector[:5]}")
 
         extraction["summary"] = summary  # add summary to metadata for storage
