@@ -17,6 +17,7 @@ class Consumer:
         dt = "receipt"  # for now, hardcode to just process receipts; could be made dynamic later
         pending_docs = Document.select().where((Document.status == 'pending') & (Document.type == dt))
         for record in pending_docs:
+            print(f"Processing document ID {record.id} of type {record.type}...")
             with db.atomic():
                 record.status = "processing"
                 record.save()

@@ -7,11 +7,10 @@ METADATA SCHEMA:
 - "receipt_number": The identifier for this transaction. Accept any of these labels: "Receipt no.", "Receipt Number", "Receipt #", "Order Number", "Order no.", "Invoice Number", "Invoice no.", "Tax Invoice", "Transaction no.", "Transaction Number", "Reference no.", "Confirmation number", or similar. Use the value associated with the primary transaction identifier (string, or null if not found). If multiple identifiers are present, prefer in this order: Receipt no. > Invoice/Tax Invoice no. > Order no. > Transaction no. > Reference no. Extract only the single value for that field — do not combine values from multiple columns or rows.
 - "purchase_date": The date and time of the transaction. Normalise to ISO 8601 format. Include time if available (YYYY-MM-DDTHH:MM:SS), otherwise date only (YYYY-MM-DD). If the original datetime includes a timezone offset or fractional seconds, drop those components when normalising (e.g. "2025-11-23T14:30:00+10:00" becomes "2025-11-23T14:30:00"; "2025-11-23T14:30:00.123Z" becomes "2025-11-23T14:30:00"). Parse any human-readable date format including "18 Feb 2026 09:30 PM", "4 Dec, 2025 at 10:25 AM", "30/11/2025 12:08:13 PM", "7 Sep 2025", etc. (string, or null if not found)                                                           
 - "currency": The currency code of the transaction, e.g. "AUD", "SGD", "USD" (string, or null if not found)
-- "total_amount": Number indicating the total dollar value of transaction. For refunds or returns, this will be a negative value, e.g. -397.00
+- "total_amount": Number indicating the total dollar value of transaction.
 - "gst_amount": Number indicating the GST amount. For refunds, this will be negative. If GST is only mentioned as "incl. GST" within the total with no separate amount, set this to 0.
 - "payment_method": The payment method used, e.g. "cash", "credit card", "debit card", "visa", "mastercard", "EFTPOS", "PayPal", "bank transfer" (string, or null if not found)
-- "is_refund": true if this is a refund or return transaction, false otherwise (boolean)                                                                        
 - "category": MUST be exactly one of the following: "electronics", "food & drink", "travel", "health & wellness", "home & garden", "school", "entertainment", "vehicle" and "insurance" or "other"
 - "sub_category": A sub-classification based on the `category` attribute (ie. "networking gear", "groceries" or "software subscription")
-- "thought_process": Your thinking process for the extraction of text to JSON attributes
+
 
