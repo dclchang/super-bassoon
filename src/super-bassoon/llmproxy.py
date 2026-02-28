@@ -10,17 +10,11 @@ class LlmProxy:
         litellm.api_key = api_key
         
         # Optional: Disable LiteLLM's internal logging for a cleaner console
-        litellm.set_verbose = False 
+        litellm.set_verbose = False
 
     def extract(self, model: str, document: dict, document_type: str) -> dict:
         """Extract structured data from a PaperlessNGX document dictionary."""
-        prompts_dir = Path(__file__).parent / "prompts"
-        prompt_file = prompts_dir / f"{document_type}.txt"
-        
-        if not prompt_file.exists():
-            raise FileNotFoundError(f"No prompt file found for: {document_type}")
-        
-        system_content = prompt_file.read_text()
+        system_content = self._load_extraction_prompt(document_type=document_type)
 
         # Build user prompt with metadata
         prompt_text = document.get("content", "")
@@ -50,6 +44,25 @@ class LlmProxy:
         )
         
         return response.choices[0].message.content
+    
+    def _load_extraction_prompt(self, document_type: str) -> str:
+        """Load the prompt template for a given document type."""
+        schema_dir = Path(__file__).parent / "schemas"
+        schema_file = schema_dir / f"{document_type}.txt"
+        if not schema_file.exists():
+            raise FileNotFoundError(f"Missing schema file: {document_type}")
+        schema = schema_file.read_text()
+
+        prompts_dir = Path(__file__).parent / "prompts"
+        prompt_file = prompts_dir / "extraction" / f"{document_type}.txt"
+        
+        if not prompt_file.exists():
+            raise FileNotFoundError(f"Missing prompt file: {document_type}")
+        
+        prompt = prompt_file.read_text()
+        prompt.format(schema=schema)
+        #return prompt_file.read_text()
+        return prompt
 
     def _parse_response(self, raw: str, metadata: dict) -> dict:
         """
@@ -92,13 +105,7 @@ class LlmProxy:
 
     def review(self, model: str, extracted: dict, document_type: str) -> float:
         """Ask the LLM to judge an extraction against the prompt template."""
-        prompts_dir = Path(__file__).parent / "prompts"
-        prompt_file = prompts_dir / f"{document_type}.txt"
-        
-        if not prompt_file.exists():
-            raise FileNotFoundError(f"Missing prompt file: {document_type}")
-            
-        template = prompt_file.read_text()
+        template = self._load_extraction_prompt(document_type=document_type)
 
         system_msg = (
             "You are a reviewer assistant. Compare the provided JSON data to the "
@@ -125,3 +132,25 @@ class LlmProxy:
         """Get an embedding vector for the given text."""
         response = litellm.embedding(model=model, input=[text])
         return response['data'][0]['embedding']
+
+    def prepare_query(self, model: str, query: str, document_type: str) -> str:
+        """Prepare a user query for vector search by generating an embedding."""
+        prompt = self._load_extraction_prompt(document_type=document_type)
+
+        system_msg = (
+            f"You are a RAG query preparation assistant. "
+            "Your task is to convert the user's natural language query into a strucutred search plan."
+            "Return the result as a JSON object with the following attributes:"
+            f"Use the following prompt template as context:\n{prompt}"
+        )
+        sys_msg = """
+You are a RAG query preparation assistant. Your task is to convert the user's natural language query into a structured search plan. The search plan should be a JSON object with the following attributes:
+- query: A concise reformulation of the user's query, optimized for vector search.
+- filters: Any relevant metadata filters that should be applied to the search (e.g., vendor, date
+"""
+
+
+        #return self.vectorise(model=model, text=query)
+        reply = self.chat(model=model, prompt=query, system=system_msg)
+        return reply
+

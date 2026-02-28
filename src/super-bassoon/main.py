@@ -40,6 +40,9 @@ def main():
     
     print("Extracting structured data from receipt using LiteLLM...")
     llm = LlmProxy(LITELLM_URL, LITELLM_API_KEY)
+
+    #queryx = llm.prepare_query(model=EXTRACTOR_MODEL, query="How much did I pay VicRoads?", document_type="receipt")
+
     try:
         extraction = llm.extract(
             model=EXTRACTOR_MODEL,
