@@ -110,8 +110,11 @@ class LlmProxy:
 
         system_msg = (
             "You are a reviewer assistant. Compare the provided JSON data to the "
-            "description in the prompt template. Respond with only a number from 0 to 100. "
-            "Do not return anything except the numeric score."
+            "description in the prompt template and return a score indicating how well the JSON"
+            "objects matches the requirements of the template."
+            "Return a JSON object with the following attributes:"
+            "- score: A numeric score from 0 to 100 indicating the quality of the extraction. 100 means perfect match to the template, 0 means completely wrong. Always return a score, even if the JSON is malformed or missing attributes."
+            "- issues: A list of any specific issues you found with the extraction (e.g. missing fields, incorrect formats, etc.)"
         )
 
         user_msg = (
