@@ -1,7 +1,8 @@
 import litellm
-from pathlib import Path
 import json
 import re
+from pathlib import Path
+from string import Template
 
 class LlmProxy:
     def __init__(self, base_url: str, api_key: str = ""):
@@ -59,8 +60,8 @@ class LlmProxy:
         if not prompt_file.exists():
             raise FileNotFoundError(f"Missing prompt file: {document_type}")
         
-        prompt = prompt_file.read_text()
-        prompt.format(schema=schema)
+        prompt = Template(prompt_file.read_text())
+        prompt = prompt.substitute(schema=schema)  # inject the schema into the prompt template
         #return prompt_file.read_text()
         return prompt
 
