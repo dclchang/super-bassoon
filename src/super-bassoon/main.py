@@ -62,8 +62,8 @@ def main():
 
         extraction["summary"] = summary  # add summary to metadata for storage
 
-        vectordb = VectorDb(url=QDRANT_URL, collection_name=QDRANT_COLLECTION)
-        vectordb.upsert(vector=vector, payload=extraction)
+        vectordb = VectorDb(url=QDRANT_URL)
+        vectordb.upsert(vector=vector, payload=extraction, collection_name=QDRANT_COLLECTION)
 
 
     except Exception as exc:

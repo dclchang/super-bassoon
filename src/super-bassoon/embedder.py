@@ -7,9 +7,9 @@ from paperless import PaperlessNGX
 from vectordb import VectorDb
 
 class Embedder:
-    def __init__(self, llmproxy: LlmProxy, vector_db_url: str, extractor_model: str, review_model: str, embedding_model: str):
+    def __init__(self, llmproxy: LlmProxy, vectordb: VectorDb, extractor_model: str, review_model: str, embedding_model: str):
         self.llm = llmproxy
-        self.vector_db_url = vector_db_url
+        self.vectordb = vectordb
         self.extractor_model = extractor_model
         self.review_model = review_model
         self.embedding_model = embedding_model
@@ -34,8 +34,7 @@ class Embedder:
             summary = self.llm.summarise(model=self.extractor_model, extracted=extraction, document_type=record.type)
 
             vector = self.llm.vectorise(model=self.embedding_model, text=summary)
-            vectordb = VectorDb(url=self.vector_db_url, collection_name=f"{record.type}_collection")
-            vectordb.upsert(vector=vector, payload=extraction)
+            self.vectordb.upsert(vector=vector, payload=extraction, collection_name=f"{record.type}_collection")
 
             with db.atomic():
                 record.status = "processed"
@@ -50,20 +49,21 @@ class Embedder:
 
 if __name__ == "__main__":
     paperless = PaperlessNGX(
-         url="http://192.168.68.222:8000", 
+         base_url="http://192.168.68.222:8000", 
          token=get_secret("op://homelab/paperless-api-token/credential"))
     
     llmproxy = LlmProxy(
-        url="http://192.168.68.222:4040",
+        base_url="http://192.168.68.222:4040",
         api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
         paperless=paperless)
 
+    vectordb = VectorDb(base_url="http://192.168.68.222:6333")
     consumer = Embedder(
         llmproxy=llmproxy,
+        vectordb=vectordb,
         extractor_model="openai/claude-gemini-12",
         review_model="openai/falcon-7b",
-        embedding_model="openai/nomic-embed-text",
-        vector_db_url="http://192.168.68.222:6333",
+        embedding_model="openai/nomic-embed-text"
     )
     consumer.consume()
 

@@ -4,20 +4,22 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 import uuid
 
 class VectorDb:
-    def __init__(self, url: str, collection_name: str):
-        self.client = QdrantClient(url=url)
-        self.collection_name = collection_name
+    def __init__(self, base_url: str):
+        self.client = QdrantClient(url=base_url)
         self.namespace = uuid.UUID(get_secret("op://homelab/qdrant-namespace/credential"))
-        if not self.client.collection_exists(self.collection_name):
+
+    def _check_collection(self, collection_name: str):
+        if not self.client.collection_exists(collection_name):
             self.client.create_collection(
-                collection_name=self.collection_name,
+                collection_name=collection_name,
                 vectors_config=VectorParams(size=768, distance=Distance.COSINE),
             )
 
-    def upsert(self, vector: list[float], payload: dict):
+    def upsert(self, vector: list[float], payload: dict, collection_name: str):
         qdrant_id = str(uuid.uuid5(self.namespace, str(payload["document_id"])))
+        self._check_collection(collection_name)
         self.client.upsert(
-            collection_name=self.collection_name,
+            collection_name=collection_name,
             points=[
                 PointStruct(
                     id=qdrant_id,
