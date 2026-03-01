@@ -5,7 +5,7 @@ from op import get_secret
 from llmproxy import LlmProxy
 from vectordb import VectorDb
 
-class Consumer:
+class Embedder:
     def __init__(self, llm_proxy_url: str, llm_proxy_api_key: str, vector_db_url: str, extractor_model: str, review_model: str, embedding_model: str):
         self.llm = LlmProxy(llm_proxy_url, llm_proxy_api_key)
         self.vector_db_url = vector_db_url
@@ -29,7 +29,7 @@ class Consumer:
                 document_type=dt,
             )
 
-            score = self.llm.review(model=self.review_model, extracted=extraction, document_type=record.type)
+            review = self.llm.review(model=self.review_model, extracted=extraction, document_type=record.type)
             summary = self.llm.summarise(model=self.extractor_model, extracted=extraction, document_type=record.type)
 
             vector = self.llm.vectorise(model=self.embedding_model, text=summary)
@@ -38,7 +38,8 @@ class Consumer:
 
             with db.atomic():
                 record.status = "processed"
-                record.score = score  # store the review score in the DB for future reference
+                record.score = review["score"]  # store the review score in the DB for future reference
+                record.score_reason = json.dumps(review["issues"])  # store the review issues as JSON string in the DB
                 record.summary = summary  # store the summary in the DB for future reference
                 record.save()
 
@@ -47,7 +48,7 @@ class Consumer:
 
 
 if __name__ == "__main__":
-    consumer = Consumer(
+    consumer = Embedder(
         llm_proxy_url="http://192.168.68.222:4040",
         llm_proxy_api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
         extractor_model="openai/claude-gemini-12",

@@ -6,7 +6,7 @@ from models.base import db
 from op import get_secret
 from paperless import PaperlessNGX
 
-class Producer:
+class Retriever:
     def __init__(self, paperless_url: str = None, paperless_token: str = None):
         self.paperless_url = paperless_url
         self.paperless_token = get_secret(paperless_token)
@@ -82,7 +82,7 @@ class Producer:
 
 if __name__ == "__main__":
     # Example usage
-    producer = Producer(
+    producer = Retriever(
          paperless_url="http://192.168.68.222:8000", 
          paperless_token="op://homelab/paperless-api-token/credential")
     producer.produce()

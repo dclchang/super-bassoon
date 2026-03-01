@@ -104,7 +104,7 @@ class LlmProxy:
         summary = self.chat(model=model, prompt=user_msg, system=system_msg)
         return summary.strip()
 
-    def review(self, model: str, extracted: dict, document_type: str) -> float:
+    def review(self, model: str, extracted: dict, document_type: str) -> dict:
         """Ask the LLM to judge an extraction against the prompt template."""
         template = self._load_extraction_prompt(document_type=document_type)
 
@@ -112,9 +112,11 @@ class LlmProxy:
             "You are a reviewer assistant. Compare the provided JSON data to the "
             "description in the prompt template and return a score indicating how well the JSON"
             "objects matches the requirements of the template."
-            "Return a JSON object with the following attributes:"
+            "Return a valid JSON object that contains the following attributes. DO NOT return any additional text or code fences:"
             "- score: A numeric score from 0 to 100 indicating the quality of the extraction. 100 means perfect match to the template, 0 means completely wrong. Always return a score, even if the JSON is malformed or missing attributes."
             "- issues: A list of any specific issues you found with the extraction (e.g. missing fields, incorrect formats, etc.)"
+            "Example:"
+            '{"score: 85, "issues": ["field X is missing", "field Y is in the wrong format"]}'
         )
 
         user_msg = (
@@ -123,14 +125,14 @@ class LlmProxy:
         )
         
         reply = self.chat(model=model, prompt=user_msg, system=system_msg)
-
-        # Parse numeric score
-        m = re.search(r"([0-9]+(?:\.[0-9]+)?)", reply)
-        if not m:
-            raise ValueError(f"Could not parse score from review reply: {reply!r}")
+        return json.loads(reply.strip())
+        # # Parse numeric score
+        # m = re.search(r"([0-9]+(?:\.[0-9]+)?)", reply)
+        # if not m:
+        #     raise ValueError(f"Could not parse score from review reply: {reply!r}")
         
-        score = float(m.group(1))
-        return max(0.0, min(100.0, score))
+        # score = float(m.group(1))
+        # return max(0.0, min(100.0, score))
     
     def vectorise(self, model: str, text: str) -> list[float]:
         """Get an embedding vector for the given text."""
