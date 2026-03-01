@@ -7,10 +7,9 @@ from op import get_secret
 from paperless import PaperlessNGX
 
 class Retriever:
-    def __init__(self, paperless_url: str = None, paperless_token: str = None):
-        self.paperless_url = paperless_url
-        self.paperless_token = get_secret(paperless_token)
-        self.paperless = PaperlessNGX(self.paperless_url, self.paperless_token)
+    #def __init__(self, paperless_url: str = None, paperless_token: str = None):
+    def __init__(self, paperless: PaperlessNGX):
+        self.paperless = paperless
 
     def _hash_content(self, content: str) -> str:
         # Simple hash function for demonstration; replace with a proper hash in production
@@ -82,8 +81,9 @@ class Retriever:
 
 if __name__ == "__main__":
     # Example usage
-    producer = Retriever(
-         paperless_url="http://192.168.68.222:8000", 
-         paperless_token="op://homelab/paperless-api-token/credential")
+    paperless = PaperlessNGX(
+         url="http://192.168.68.222:8000", 
+         token=get_secret("op://homelab/paperless-api-token/credential"))
+    producer = Retriever(paperless=paperless)
     producer.produce()
 
