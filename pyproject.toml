@@ -14,7 +14,8 @@ dependencies = [
     "requests",
     "qdrant-client",
     "litellm",
-    "peewee"
+    "peewee",
+    "rapidfuzz"
 ]
 
 [project.scripts]

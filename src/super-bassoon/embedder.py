@@ -40,6 +40,7 @@ class Embedder:
                 record.status = "processed"
                 record.score = review["score"]  # store the review score in the DB for future reference
                 record.score_reason = json.dumps(review["issues"])  # store the review issues as JSON string in the DB
+                record.structured_content = extraction  # store the entire extracted JSON in the DB for future reference
                 record.summary = summary  # store the summary in the DB for future reference
                 record.save()
 
@@ -49,13 +50,12 @@ class Embedder:
 
 if __name__ == "__main__":
     paperless = PaperlessNgx(
-         base_url="http://192.168.68.222:8000", 
-         api_key=get_secret("op://homelab/paperless-api-token/credential"))
+        base_url="http://192.168.68.222:8000", 
+        api_key=get_secret("op://homelab/paperless-api-token/credential"))
     
     llmproxy = LlmProxy(
         base_url="http://192.168.68.222:4040",
-        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
-        paperless=paperless)
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"))
 
     vectordb = VectorDb(base_url="http://192.168.68.222:6333")
     consumer = Embedder(

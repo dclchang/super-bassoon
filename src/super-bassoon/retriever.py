@@ -82,7 +82,7 @@ class Retriever:
 if __name__ == "__main__":
     # Example usage
     paperless = PaperlessNgx(
-         url="http://192.168.68.222:8000", 
+         base_url="http://192.168.68.222:8000", 
          api_key=get_secret("op://homelab/paperless-api-token/credential"))
     producer = Retriever(paperless=paperless)
     producer.produce()
