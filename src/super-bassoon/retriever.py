@@ -1,10 +1,14 @@
 import datetime
 import hashlib
 import json
+from typing import Optional
+import rapidfuzz
+import re
 from models.document import Document
 from models.base import db
 from op import get_secret
 from paperless import PaperlessNgx
+from pathlib import Path
 
 class Retriever:
     #def __init__(self, paperless_url: str = None, paperless_token: str = None):
@@ -77,6 +81,85 @@ class Retriever:
             print(f"Queued for update:     {update_count}")
             print(f"Skipped (no change):   {skipped_count}")
             print(f"-----------------------------")
+
+    def _get_resolvable_fields(self, document_type: str) -> list[str]:
+        schema_dir = Path(__file__).parent / "schemas"
+        schema_file = schema_dir / f"{document_type}.txt"
+        if not schema_file.exists():
+            raise FileNotFoundError(f"Missing schema file: {document_type}")
+
+        resolvable = []
+        with open(schema_file) as f:
+            for line in f:
+                if '[resolvable]' in line:
+                    match = re.match(r'\s*-\s*"(\w+)"', line)
+                    if match:
+                        resolvable.append(match.group(1))
+        return resolvable
+    
+    def extract_filter_value(self, filter: dict, field: str) -> Optional[str]:
+        """Extract the raw value for a field from the filter dict, if present."""
+        for clause in ["must", "should", "must_not"]:
+            if clause not in filter:
+                continue
+            for condition in filter[clause]:
+                if condition.get("key") == field:
+                    match = condition.get("match", {})
+                    # handles both {"value": "Apple"} and {"any": ["Apple"]}
+                    return match.get("value") or (match.get("any") or [None])[0]
+        return None
+
+    def get_distinct_values(self, field: str) -> list[str]:    
+        cursor = db.execute_sql(
+            f"SELECT DISTINCT json_extract(structured_content, '$.{field}') FROM documents WHERE structured_content IS NOT NULL"
+        )
+        return [row[0] for row in cursor.fetchall() if row[0]]
+
+    def resolve_filter_field(self, filter: dict, field: str, resolved_values: list[str]) -> dict:
+        """
+        Replace a field's match value in the filter dict with rapidfuzz-resolved values.
+        Works for any field: vendor, correspondent, recipient_name, etc.
+        """
+        if not resolved_values:
+            for clause in ["must", "should", "must_not"]:
+                if clause in filter:
+                    filter[clause] = [
+                        c for c in filter[clause]
+                        if c.get("key") != field
+                    ]
+            return filter
+
+        for clause in ["must", "should", "must_not"]:
+            if clause not in filter:
+                continue
+            for condition in filter[clause]:
+                if condition.get("key") == field:
+                    if len(resolved_values) == 1:
+                        condition["match"] = {"value": resolved_values[0]}
+                    else:
+                        condition["match"] = {"any": resolved_values}
+
+        return filter
+
+    def refine_filter(self, filter: dict, document_type: str) -> dict:
+        # Placeholder for future implementation of LLM-based filter refinement
+        resolvables = self._get_resolvable_fields(document_type)
+        for resolvable in resolvables:
+            key = self.extract_filter_value(filter, resolvable)
+            if key is None:
+                continue
+
+            values = self.get_distinct_values(resolvable)
+
+            if key in values:
+                filter = self.resolve_filter_field(filter, resolvable, [key])
+                continue
+
+            matches = rapidfuzz.process.extract(key, values, scorer=rapidfuzz.fuzz.WRatio, limit=5)
+            top_matches = [value for value, score, idx in matches if score > 80]
+            filter = self.resolve_filter_field(filter, resolvable, top_matches)
+        return filter
+    
 
 
 if __name__ == "__main__":
