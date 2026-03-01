@@ -3,7 +3,7 @@ from models.document import Document
 from models.base import db
 from op import get_secret
 from llmproxy import LlmProxy
-from paperless import PaperlessNGX
+from paperless import PaperlessNgx
 from vectordb import VectorDb
 
 class Embedder:
@@ -48,9 +48,9 @@ class Embedder:
 
 
 if __name__ == "__main__":
-    paperless = PaperlessNGX(
+    paperless = PaperlessNgx(
          base_url="http://192.168.68.222:8000", 
-         token=get_secret("op://homelab/paperless-api-token/credential"))
+         api_key=get_secret("op://homelab/paperless-api-token/credential"))
     
     llmproxy = LlmProxy(
         base_url="http://192.168.68.222:4040",

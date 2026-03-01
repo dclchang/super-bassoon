@@ -4,11 +4,11 @@ import json
 from models.document import Document
 from models.base import db
 from op import get_secret
-from paperless import PaperlessNGX
+from paperless import PaperlessNgx
 
 class Retriever:
     #def __init__(self, paperless_url: str = None, paperless_token: str = None):
-    def __init__(self, paperless: PaperlessNGX):
+    def __init__(self, paperless: PaperlessNgx):
         self.paperless = paperless
 
     def _hash_content(self, content: str) -> str:
@@ -81,9 +81,9 @@ class Retriever:
 
 if __name__ == "__main__":
     # Example usage
-    paperless = PaperlessNGX(
+    paperless = PaperlessNgx(
          url="http://192.168.68.222:8000", 
-         token=get_secret("op://homelab/paperless-api-token/credential"))
+         api_key=get_secret("op://homelab/paperless-api-token/credential"))
     producer = Retriever(paperless=paperless)
     producer.produce()
 

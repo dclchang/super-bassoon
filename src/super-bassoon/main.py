@@ -1,6 +1,6 @@
 from llmproxy import LlmProxy
 from op import get_secret
-from paperless import PaperlessNGX
+from paperless import PaperlessNgx
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from vectordb import VectorDb
@@ -22,7 +22,7 @@ QDRANT_COLLECTION = "receipt_embeddings"
 
 
 def main():
-    ngx = PaperlessNGX(PAPERLESS_URL, PAPERLESS_TOKEN)
+    ngx = PaperlessNgx(PAPERLESS_URL, PAPERLESS_TOKEN)
     # document_types = ngx.get_document_types()
     # receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
     # if receipt_id is None:

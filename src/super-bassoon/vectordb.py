@@ -1,6 +1,6 @@
 from op import get_secret
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, QueryResponse
 import uuid
 
 class VectorDb:
@@ -29,10 +29,21 @@ class VectorDb:
             ],
         )
 
-    def query(self, query: str, collection_name: str, top_k: int = 5) -> list[dict]:
-        # This is a placeholder implementation; in a real implementation, you would first embed the query using the same embedding model
-        # and then perform a vector search against the collection. For simplicity, we'll just return an empty list here.
-        retval = self.client.query(query_text=query, collection_name=collection_name, limit=top_k)
-        return retval.points
+    def query(self, query: str, collection_name: str, filters:Filter, top_k: int = 5) -> QueryResponse:
+        results = self.client.query_points(
+            collection_name=collection_name,
+            query=query,  # In a real implementation, you would embed the query string into a vector using the same embedding model
+            query_filter=filters,  # Apply filters to narrow down search results based on metadata
+            limit=top_k
+        )
+        return results
+
+    def query2(self, query: str, collection_name: str, top_k: int = 5) -> QueryResponse:
+        results = self.client.query_points(
+            collection_name=collection_name,
+            query=query,  # In a real implementation, you would embed the query string into a vector using the same embedding model
+            limit=top_k
+        )
+        return results
 
 

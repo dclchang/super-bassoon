@@ -1,5 +1,5 @@
 import peewee
-from .base import BaseModel, db
+from .base import BaseModel, db, JsonField
 
 class Document(BaseModel):
     id = peewee.IntegerField(primary_key=True)
@@ -8,12 +8,13 @@ class Document(BaseModel):
     added_at = peewee.DateTimeField(null=True)  # when we added this to our DB
     updated_at = peewee.DateTimeField(null=True)  # when we last updated this
     content = peewee.TextField()
+    structured_content = JsonField(null=True)  # optional field to store the extracted JSON from the document for future reference
     summary = peewee.TextField(null=True)  # optional field to store LLM-generated summary
     hash = peewee.CharField(max_length=64)  # store a hash of the content for quick comparisons
     status = peewee.CharField(max_length=20, default="new")  # e.g. "new", "processed", "error"
     score = peewee.FloatField(default=0)  # optional field to store review score from LLM
     score_reason = peewee.TextField(null=True)  # optional field to store LLM's explanation of the score
-
+    
     class Meta:
         table_name = "documents"
 

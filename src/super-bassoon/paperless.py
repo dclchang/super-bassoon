@@ -2,11 +2,11 @@ import requests
 from litellm import LiteLLM
 
 
-class PaperlessNGX:
-    def __init__(self, base_url: str, token: str):
+class PaperlessNgx:
+    def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
-        self.session.headers.update({"Authorization": f"Token {token}"})
+        self.session.headers.update({"Authorization": f"Token {api_key}"})
 
     def _get_all_pages(self, url: str, params: dict = None) -> list:
         results = []

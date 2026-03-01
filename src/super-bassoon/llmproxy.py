@@ -1,20 +1,21 @@
 import litellm
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from string import Template
-from paperless import PaperlessNGX
+from paperless import PaperlessNgx
+from op import get_secret
+from qdrant_client.models import Filter
 
 class LlmProxy:
-    def __init__(self, base_url: str, api_key: str, paperless: PaperlessNGX):
+    def __init__(self, base_url: str, api_key: str):
         # LiteLLM uses these global variables to direct its traffic
         litellm.api_base = base_url.rstrip("/")
         litellm.api_key = api_key
         
         # Optional: Disable LiteLLM's internal logging for a cleaner console
         litellm.set_verbose = False
-
-        self.paperless = paperless
 
     def extract(self, model: str, document: dict, document_type: str) -> dict:
         """Extract structured data from a PaperlessNGX document dictionary."""
@@ -151,37 +152,70 @@ class LlmProxy:
             "You are a query classifier assistant."
             "Your task is to analyze the user's query and determine which document type it is referring to."
             f"The possible document types are: {', '.join(document_types)}"
+            "Return only ONE best matching answer and nothing else, no explanations, no markdown, no code fences, just the document type as a single word in lowercase."
         )
-
-    def query_intent(self, model: str, query: str) -> dict:
-        document_type = self.query_classifier(model=model, query=query)
-        schema = self._load_schema(document_type=document_type)
-        system_msg = (
-            f"You are a query intent classifier. "
-            f"Your task is to analyze the user's query and determine the intent and document type."
-            f"Return a JSON object with the following attributes:"
-            f"- document_type: The type of document the query is about (e.g., 'receipt', 'invoice', etc.)"
-            f"- intent: The intent of the query (e.g., 'search', 'summarize', 'extract', etc.)"
-        )
-
-    def prepare_query(self, model: str, query: str, document_type: str) -> str:
-        """Prepare a user query for vector search by generating an embedding."""
-        prompt = self._load_extraction_prompt(document_type=document_type)
-
-        system_msg = (
-            f"You are a RAG query preparation assistant. "
-            "Your task is to convert the user's natural language query into a strucutred search plan."
-            "Return the result as a JSON object with the following attributes:"
-            f"Use the following prompt template as context:\n{prompt}"
-        )
-        sys_msg = """
-You are a RAG query preparation assistant. Your task is to convert the user's natural language query into a structured search plan. The search plan should be a JSON object with the following attributes:
-- query: A concise reformulation of the user's query, optimized for vector search.
-- filters: Any relevant metadata filters that should be applied to the search (e.g., vendor, date
-"""
-
-
-        #return self.vectorise(model=model, text=query)
         reply = self.chat(model=model, prompt=query, system=system_msg)
-        return reply
+        return reply.strip().lower()
+
+    def query_filters(self, model: str, query: str, document_type: str) -> dict:
+        schema = self._load_schema(document_type=document_type)
+        system_msg = Template('''
+You are a RAG query planning assistant. Given a natural language question, you must return a JSON object 
+that represents a Qdrant filter. The JSON must conform exactly to the following structure:
+
+{
+    "must": [                          # ALL conditions must match (AND)
+        {
+            "key": "<field_name>",
+            "match": {"value": <str or int or bool>}   # exact match
+        },
+        {
+            "key": "<field_name>",
+            "range": {                 # for numeric or date comparisons
+                "gt":  <number>,       # greater than (optional)
+                "gte": <number>,       # greater than or equal (optional)
+                "lt":  <number>,       # less than (optional)
+                "lte": <number>        # less than or equal (optional)
+            }
+        }
+    ],
+    "should": [...],                   # ANY condition must match (OR)
+    "must_not": [...]                  # NOT conditions
+}
+
+Rules:
+- Only include "must", "should", or "must_not" keys if they are needed
+- Only use field names from this list: [vendor, document_type, total_amount, date, correspondent]
+- For dates use ISO 8601 format: "2024-01-31"
+- Return ONLY the JSON object, no explanation or markdown
+
+Example input: "find electricity bills from AGL under $$100 in 2024"
+Example output:
+{
+    "must": [
+        {"key": "document_type", "match": {"value": "bill"}},
+        {"key": "vendor", "match": {"value": "AGL"}},
+        {"key": "total_amount", "range": {"lt": 100}},
+        {"key": "date", "range": {"gte": "2024-01-01", "lte": "2024-12-31"}}
+    ]
+}
+
+Refer to the following schema for field definitions:
+$schema
+''')
+        system_msg = system_msg.substitute(schema=schema)
+        reply = self.chat(model=model, prompt=query, system=system_msg, is_json=True)
+        return json.loads(reply)
+
+
+
+if __name__ == "__main__":
+    paperless = PaperlessNgx(
+         base_url="http://192.168.68.222:8000", 
+         api_key=get_secret("op://homelab/paperless-api-token/credential"))
+    llmproxy = LlmProxy(
+        base_url="http://192.168.68.222:4040",
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"))
+    classification = llmproxy.query_filters(model="openai/claude-gemini-12", query="When was my Aussie Broadband under $100?")
+
 
