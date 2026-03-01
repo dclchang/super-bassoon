@@ -39,30 +39,31 @@ def main():
     receipt = ngx.get_document(receipts[index])
     
     print("Extracting structured data from receipt using LiteLLM...")
-    llm = LlmProxy(LITELLM_URL, LITELLM_API_KEY)
-
-    #queryx = llm.prepare_query(model=EXTRACTOR_MODEL, query="How much did I pay VicRoads?", document_type="receipt")
+    llm = LlmProxy(LITELLM_URL, LITELLM_API_KEY, {
+        "extractor": EXTRACTOR_MODEL,
+        "reviewer": REVIEWER_MODEL,
+        "embedding": EMBEDDER_MODEL,
+    })
 
     try:
         extraction = llm.extract(
-            model=EXTRACTOR_MODEL,
             document=receipt,
             document_type="receipt",
         )
 
-        score = llm.review(model=REVIEWER_MODEL, extracted=extraction, document_type="receipt")
+        score = llm.review(extracted=extraction, document_type="receipt")
         print(f"Review score: {score:.1f}/100")
 
-        summary = llm.summarise(model=EXTRACTOR_MODEL, extracted=extraction, document_type="receipt")
+        summary = llm.summarise(extracted=extraction, document_type="receipt")
         print(summary)
 
         print("Generating embedding for receipt summary...")
-        vector = llm.vectorise(model=EMBEDDER_MODEL, text=summary)
+        vector = llm.vectorise(text=summary)
         print(f"Embedding vector (first 5 dimensions): {vector[:5]}")
 
         extraction["summary"] = summary  # add summary to metadata for storage
 
-        vectordb = VectorDb(url=QDRANT_URL)
+        vectordb = VectorDb(base_url=QDRANT_URL)
         vectordb.upsert(vector=vector, payload=extraction, collection_name=QDRANT_COLLECTION)
 
 

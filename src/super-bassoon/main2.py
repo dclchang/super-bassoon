@@ -13,14 +13,19 @@ if __name__ == "__main__":
     )
     llmproxy = LlmProxy(
         base_url="http://192.168.68.222:4040",
-        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"))
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
+        models={
+            "extractor": "openai/claude-gemini-12",
+            "reviewer": "openai/falcon-7b",
+            "embedding": "openai/nomic-embed-text"
+        })
     
     vectordb = VectorDb(base_url="http://192.168.68.222:6333")
 
     query = "What did I buy with a receipt number of 'INV-34183630'?"
     document_types = [dt['name'] for dt in paperless.get_document_types()]
-    document_type = llmproxy.query_classifier(model="openai/claude-gemini-12", query=query, document_types=document_types)
-    filter = llmproxy.query_filters(model="openai/claude-gemini-12", query=query, document_type=document_type)
+    document_type = llmproxy.query_classifier(query=query, document_types=document_types)
+    filter = llmproxy.query_filters(query=query, document_type=document_type)
 
     retriever = Retriever(paperless=paperless)
     new_filter = retriever.refine_filter(filter=filter, document_type=document_type)
@@ -35,7 +40,7 @@ if __name__ == "__main__":
 
 
 
-    vector = llmproxy.vectorise(model="openai/nomic-embed-text", text=query)
+    vector = llmproxy.vectorise(text=query)
     #results = vectordb.query(query=vector, collection_name=f"{document_type}_collection", filters=filter, top_k=5)
     results = vectordb.query2(query=vector, collection_name=f"{document_type}_collection", top_k=5)
     for point in results.points:

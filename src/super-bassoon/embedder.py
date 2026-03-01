@@ -7,14 +7,11 @@ from paperless import PaperlessNgx
 from vectordb import VectorDb
 
 class Embedder:
-    def __init__(self, llmproxy: LlmProxy, vectordb: VectorDb, extractor_model: str, review_model: str, embedding_model: str):
+    def __init__(self, llmproxy: LlmProxy, vectordb: VectorDb):
         self.llm = llmproxy
         self.vectordb = vectordb
-        self.extractor_model = extractor_model
-        self.review_model = review_model
-        self.embedding_model = embedding_model
 
-    def consume(self):
+    def embed(self):
         dt = "receipt"  # for now, hardcode to just process receipts; could be made dynamic later
         pending_docs = Document.select().where((Document.status == 'pending') & (Document.type == dt))
         for record in pending_docs:
@@ -25,15 +22,14 @@ class Embedder:
 
             content = record.content
             extraction = self.llm.extract(
-                model=self.extractor_model,
                 document=json.loads(content),  # Convert the string back to a dict for processing
                 document_type=dt,
             )
 
-            review = self.llm.review(model=self.review_model, extracted=extraction, document_type=record.type)
-            summary = self.llm.summarise(model=self.extractor_model, extracted=extraction, document_type=record.type)
+            review = self.llm.review(extracted=extraction, document_type=record.type)
+            summary = self.llm.summarise(extracted=extraction, document_type=record.type)
 
-            vector = self.llm.vectorise(model=self.embedding_model, text=summary)
+            vector = self.llm.vectorise(text=summary)
             self.vectordb.upsert(vector=vector, payload=extraction, collection_name=f"{record.type}_collection")
 
             with db.atomic():
@@ -55,15 +51,17 @@ if __name__ == "__main__":
     
     llmproxy = LlmProxy(
         base_url="http://192.168.68.222:4040",
-        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"))
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
+        models={
+            "extractor": "openai/claude-gemini-12",
+            "reviewer": "openai/falcon-7b",
+            "embedding": "openai/nomic-embed-text"
+        })
 
     vectordb = VectorDb(base_url="http://192.168.68.222:6333")
     consumer = Embedder(
         llmproxy=llmproxy,
         vectordb=vectordb,
-        extractor_model="openai/claude-gemini-12",
-        review_model="openai/falcon-7b",
-        embedding_model="openai/nomic-embed-text"
     )
-    consumer.consume()
+    consumer.embed()
 

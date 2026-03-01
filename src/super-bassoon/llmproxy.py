@@ -9,15 +9,19 @@ from op import get_secret
 from qdrant_client.models import Filter
 
 class LlmProxy:
-    def __init__(self, base_url: str, api_key: str):
+    def __init__(self, base_url: str, api_key: str, models: dict):
         # LiteLLM uses these global variables to direct its traffic
         litellm.api_base = base_url.rstrip("/")
         litellm.api_key = api_key
+
+        self.extractor_model = models.get("extractor", "openai/claude-gemini-12")
+        self.reviewer_model = models.get("reviewer", "openai/falcon-7b")
+        self.embedding_model = models.get("embedding", "openai/nomic-embed-text")
         
         # Optional: Disable LiteLLM's internal logging for a cleaner console
         litellm.set_verbose = False
 
-    def extract(self, model: str, document: dict, document_type: str) -> dict:
+    def extract(self, document: dict, document_type: str) -> dict:
         """Extract structured data from a PaperlessNGX document dictionary."""
         system_content = self._load_extraction_prompt(document_type=document_type)
 
@@ -30,7 +34,7 @@ class LlmProxy:
             prompt_text = "\n".join(meta_lines) + "\n\n" + prompt_text
 
         # Call the refactored chat method
-        raw = self.chat(model=model, prompt=prompt_text, system=system_content, is_json=True)
+        raw = self.chat(model=self.extractor_model, prompt=prompt_text, system=system_content, is_json=True)
         return self._parse_response(raw, metadata)
 
     def chat(self, model: str, prompt: str, system: str = None, is_json: bool = False) -> str:
@@ -96,7 +100,7 @@ class LlmProxy:
                 result.setdefault(k, v)
         return result
     
-    def summarise(self, model: str, extracted: dict, document_type: str) -> str:
+    def summarise(self, extracted: dict, document_type: str) -> str:
         """Generate a concise summary of the extracted data."""
         system_msg = (
             f"You are a data processing assistant. Your task is to convert structered JSON that represents a {document_type} into a single, concise, natural language paragraph."
@@ -108,10 +112,10 @@ class LlmProxy:
             f"Extracted JSON:\n{json.dumps(extracted, indent=2)}\n\n"
         )
 
-        summary = self.chat(model=model, prompt=user_msg, system=system_msg)
+        summary = self.chat(model=self.extractor_model, prompt=user_msg, system=system_msg)
         return summary.strip()
 
-    def review(self, model: str, extracted: dict, document_type: str) -> dict:
+    def review(self, extracted: dict, document_type: str) -> dict:
         """Ask the LLM to judge an extraction against the prompt template."""
         template = self._load_extraction_prompt(document_type=document_type)
 
@@ -123,7 +127,7 @@ class LlmProxy:
             "- score: A numeric score from 0 to 100 indicating the quality of the extraction. 100 means perfect match to the template, 0 means completely wrong. Always return a score, even if the JSON is malformed or missing attributes."
             "- issues: A list of any specific issues you found with the extraction (e.g. missing fields, incorrect formats, etc.)"
             "Example:"
-            '{"score: 85, "issues": ["field X is missing", "field Y is in the wrong format"]}'
+            '{"score": 85, "issues": ["field X is missing", "field Y is in the wrong format"]}'
         )
 
         user_msg = (
@@ -131,7 +135,7 @@ class LlmProxy:
             f"Extracted JSON:\n{json.dumps(extracted, indent=2)}"
         )
         
-        reply = self.chat(model=model, prompt=user_msg, system=system_msg)
+        reply = self.chat(model=self.reviewer_model, prompt=user_msg, system=system_msg)
         return json.loads(reply.strip())
         # # Parse numeric score
         # m = re.search(r"([0-9]+(?:\.[0-9]+)?)", reply)
@@ -141,12 +145,12 @@ class LlmProxy:
         # score = float(m.group(1))
         # return max(0.0, min(100.0, score))
     
-    def vectorise(self, model: str, text: str) -> list[float]:
+    def vectorise(self, text: str) -> list[float]:
         """Get an embedding vector for the given text."""
-        response = litellm.embedding(model=model, input=[text])
+        response = litellm.embedding(model=self.embedding_model, input=[text])
         return response['data'][0]['embedding']
 
-    def query_classifier(self, model: str, query: str, document_types: list[str]) -> str:
+    def query_classifier(self, query: str, document_types: list[str]) -> str:
         """Classify a user query into a document type (e.g. 'receipt', 'invoice', etc.) based on the content of the query."""
         system_msg = (
             "You are a query classifier assistant."
@@ -154,10 +158,10 @@ class LlmProxy:
             f"The possible document types are: {', '.join(document_types)}"
             "Return only ONE best matching answer and nothing else, no explanations, no markdown, no code fences, just the document type as a single word in lowercase."
         )
-        reply = self.chat(model=model, prompt=query, system=system_msg)
+        reply = self.chat(model=self.extractor_model, prompt=query, system=system_msg)
         return reply.strip().lower()
 
-    def query_filters(self, model: str, query: str, document_type: str) -> dict:
+    def query_filters(self, query: str, document_type: str) -> dict:
         schema = self._load_schema(document_type=document_type)
         system_msg = Template('''
 You are a RAG query planning assistant. Given a natural language question, you must return a JSON object 
@@ -204,7 +208,7 @@ Refer to the following schema for field definitions:
 $schema
 ''')
         system_msg = system_msg.substitute(schema=schema)
-        reply = self.chat(model=model, prompt=query, system=system_msg, is_json=True)
+        reply = self.chat(model=self.extractor_model, prompt=query, system=system_msg, is_json=True)
         return json.loads(reply)
 
 
@@ -215,7 +219,12 @@ if __name__ == "__main__":
          api_key=get_secret("op://homelab/paperless-api-token/credential"))
     llmproxy = LlmProxy(
         base_url="http://192.168.68.222:4040",
-        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"))
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
+        models={
+            "extractor": "openai/claude-gemini-12",
+            "reviewer": "openai/falcon-7b",
+            "embedding": "openai/nomic-embed-text"
+        })
     classification = llmproxy.query_filters(model="openai/claude-gemini-12", query="When was my Aussie Broadband under $100?")
 
 
