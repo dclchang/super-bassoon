@@ -3,15 +3,18 @@ import json
 import re
 from pathlib import Path
 from string import Template
+from paperless import PaperlessNGX
 
 class LlmProxy:
-    def __init__(self, base_url: str, api_key: str = ""):
+    def __init__(self, base_url: str, api_key: str, paperless: PaperlessNGX):
         # LiteLLM uses these global variables to direct its traffic
         litellm.api_base = base_url.rstrip("/")
         litellm.api_key = api_key
         
         # Optional: Disable LiteLLM's internal logging for a cleaner console
         litellm.set_verbose = False
+
+        self.paperless = paperless
 
     def extract(self, model: str, document: dict, document_type: str) -> dict:
         """Extract structured data from a PaperlessNGX document dictionary."""
@@ -46,13 +49,16 @@ class LlmProxy:
         
         return response.choices[0].message.content
     
-    def _load_extraction_prompt(self, document_type: str) -> str:
-        """Load the prompt template for a given document type."""
+    def _load_schema(self, document_type: str) -> str:
         schema_dir = Path(__file__).parent / "schemas"
         schema_file = schema_dir / f"{document_type}.txt"
         if not schema_file.exists():
             raise FileNotFoundError(f"Missing schema file: {document_type}")
-        schema = schema_file.read_text()
+        return schema_file.read_text()
+
+    def _load_extraction_prompt(self, document_type: str) -> str:
+        """Load the prompt template for a given document type."""
+        schema = self._load_schema(document_type=document_type)
 
         prompts_dir = Path(__file__).parent / "prompts"
         prompt_file = prompts_dir / "extraction" / f"{document_type}.txt"
@@ -138,6 +144,25 @@ class LlmProxy:
         """Get an embedding vector for the given text."""
         response = litellm.embedding(model=model, input=[text])
         return response['data'][0]['embedding']
+
+    def query_classifier(self, model: str, query: str, document_types: list[str]) -> str:
+        """Classify a user query into a document type (e.g. 'receipt', 'invoice', etc.) based on the content of the query."""
+        system_msg = (
+            "You are a query classifier assistant."
+            "Your task is to analyze the user's query and determine which document type it is referring to."
+            f"The possible document types are: {', '.join(document_types)}"
+        )
+
+    def query_intent(self, model: str, query: str) -> dict:
+        document_type = self.query_classifier(model=model, query=query)
+        schema = self._load_schema(document_type=document_type)
+        system_msg = (
+            f"You are a query intent classifier. "
+            f"Your task is to analyze the user's query and determine the intent and document type."
+            f"Return a JSON object with the following attributes:"
+            f"- document_type: The type of document the query is about (e.g., 'receipt', 'invoice', etc.)"
+            f"- intent: The intent of the query (e.g., 'search', 'summarize', 'extract', etc.)"
+        )
 
     def prepare_query(self, model: str, query: str, document_type: str) -> str:
         """Prepare a user query for vector search by generating an embedding."""

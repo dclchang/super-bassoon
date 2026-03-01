@@ -3,11 +3,12 @@ from models.document import Document
 from models.base import db
 from op import get_secret
 from llmproxy import LlmProxy
+from paperless import PaperlessNGX
 from vectordb import VectorDb
 
 class Embedder:
-    def __init__(self, llm_proxy_url: str, llm_proxy_api_key: str, vector_db_url: str, extractor_model: str, review_model: str, embedding_model: str):
-        self.llm = LlmProxy(llm_proxy_url, llm_proxy_api_key)
+    def __init__(self, llmproxy: LlmProxy, vector_db_url: str, extractor_model: str, review_model: str, embedding_model: str):
+        self.llm = llmproxy
         self.vector_db_url = vector_db_url
         self.extractor_model = extractor_model
         self.review_model = review_model
@@ -48,9 +49,17 @@ class Embedder:
 
 
 if __name__ == "__main__":
+    paperless = PaperlessNGX(
+         url="http://192.168.68.222:8000", 
+         token=get_secret("op://homelab/paperless-api-token/credential"))
+    
+    llmproxy = LlmProxy(
+        url="http://192.168.68.222:4040",
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
+        paperless=paperless)
+
     consumer = Embedder(
-        llm_proxy_url="http://192.168.68.222:4040",
-        llm_proxy_api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
+        llmproxy=llmproxy,
         extractor_model="openai/claude-gemini-12",
         review_model="openai/falcon-7b",
         embedding_model="openai/nomic-embed-text",
