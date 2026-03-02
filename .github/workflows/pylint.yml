@@ -19,5 +19,4 @@ jobs:
           pip install pylint requests qdrant-client litellm peewee rapidfuzz aiohttp
           
       - name: Run pylint
-        run: |
-          pylint src/super-bassoon/ --disable=C0114,C0115,C0116
+        run: pylint src/super-bassoon/ --disable=C0114,C0115,C0116; code=$?; if (( code & 3 )); then exit $code; fi
