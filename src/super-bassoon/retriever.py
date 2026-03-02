@@ -2,14 +2,17 @@ import asyncio
 import datetime
 import hashlib
 import json
-from typing import Optional
-import rapidfuzz
 import re
-from models.document import Document
+from pathlib import Path
+from typing import Optional
+
+import rapidfuzz
+
 from models.base import db
+from models.document import Document
 from op import get_secret
 from paperless import PaperlessNgx
-from pathlib import Path
+
 
 class Retriever:
     def __init__(self, paperless: PaperlessNgx):
