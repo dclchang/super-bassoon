@@ -1,13 +1,14 @@
+import asyncio
+import json
+import uuid
+
 from llmproxy import LlmProxy
 from op import get_secret
 from paperless import PaperlessNgx
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from vectordb import VectorDb
-import uuid
-import json
 
-# configuration constants used by example; could be made customizable later
 PAPERLESS_URL = "http://192.168.68.222:8000"
 PAPERLESS_TOKEN = get_secret("op://homelab/paperless-api-token/credential")
 
@@ -21,23 +22,18 @@ QDRANT_URL = "http://192.168.68.222:6333"
 QDRANT_COLLECTION = "receipt_embeddings"
 
 
-def main():
+async def main():
     ngx = PaperlessNgx(PAPERLESS_URL, PAPERLESS_TOKEN)
-    # document_types = ngx.get_document_types()
-    # receipt_id = next((dt["id"] for dt in document_types if dt["name"] == "receipt"), None)
-    # if receipt_id is None:
-    #     raise RuntimeError("No document type named 'receipt' found in PaperlessNGX")
 
-    receipts = ngx.get_document_ids_by_type(document_type='receipt')
+    receipts = await ngx.get_document_ids_by_type(document_type='receipt')
     if not receipts:
         raise RuntimeError(f"No documents found for document type 'receipt'")
 
-    # pick a sample receipt; make sure the index exists
     index = 7
     if index >= len(receipts):
         index = 0
-    receipt = ngx.get_document(receipts[index])
-    
+    receipt = await ngx.get_document(receipts[index])
+
     print("Extracting structured data from receipt using LiteLLM...")
     llm = LlmProxy(LITELLM_URL, LITELLM_API_KEY, {
         "extractor": EXTRACTOR_MODEL,
@@ -46,30 +42,31 @@ def main():
     })
 
     try:
-        extraction = llm.extract(
+        extraction = await llm.extract(
             document=receipt,
             document_type="receipt",
         )
 
-        score = llm.review(extracted=extraction, document_type="receipt")
+        score = await llm.review(extracted=extraction, document_type="receipt")
         print(f"Review score: {score:.1f}/100")
 
-        summary = llm.summarise(extracted=extraction, document_type="receipt")
+        summary = await llm.summarise(extracted=extraction, document_type="receipt")
         print(summary)
 
         print("Generating embedding for receipt summary...")
-        vector = llm.vectorise(text=summary)
+        vector = await llm.vectorise(text=summary)
         print(f"Embedding vector (first 5 dimensions): {vector[:5]}")
 
-        extraction["summary"] = summary  # add summary to metadata for storage
+        extraction["summary"] = summary
 
         vectordb = VectorDb(base_url=QDRANT_URL)
         vectordb.upsert(vector=vector, payload=extraction, collection_name=QDRANT_COLLECTION)
 
-
     except Exception as exc:
         print("failed to extract with LiteLLM:", exc)
+    finally:
+        await ngx.close()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
