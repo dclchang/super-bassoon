@@ -53,3 +53,46 @@ Example output:
   "sub_category": "groceries",
   "reasoning": "Vendor is 'Woolworths Express' from the header — not the street address or any product brand. Receipt number taken from 'Receipt No: 00123'. Date normalised from '15/11/2024 2:32 PM' to ISO 8601. Currency inferred as AUD from Sydney address and $$ symbol — no explicit currency code on receipt. GST is itemised as $$1.06 so that value is used directly; it is not a refund. Payment method 'Visa Tap' normalised to 'visa'. Category is food & drink / groceries based on line items."
 }
+
+This is another example where the receipt contains 2 items only.
+
+Input OCR text:
+"""
+Apple Store
+
+Date: 15/11/2024 2:32 PM
+Receipt No: 00123
+
+Personalised iPad 2 with Wi-Fi 16GB Black S$$624.30
+Ships 1-2 weeks
+Part number PC7666/Black
+
+iPad Smart Cover - polyurethane Blue  S$$50.47
+Ships today
+Part number MC9994/B
+
+
+Subtotal                        $$747.77
+GST Included                     $$47.23
+Total                           $$722.00
+
+Visa Tap                        $$11.70
+Approved
+"""
+
+Example output:
+{
+  "document_id": null,
+  "vendor": "Apple Store",
+  "item_description": "Personalised iPad 2 with Wi-Fi 16GB Black; iPad Smart Cover - polyurethane Blue",
+  "receipt_number": "00123",
+  "purchase_date": "2024-11-15T14:32:00",
+  "currency": "AUD",
+  "total_amount": 722.00,
+  "gst_amount": 47.23,
+  "is_refund": false,
+  "payment_method": "visa",
+  "category": "electronics",
+  "sub_category": "tablet",
+  "reasoning": "Vendor is 'Apple Store' from the header. Receipt number taken from 'Receipt No: 00123'. Date normalised from '15/11/2024 2:32 PM' to ISO 8601. Currency inferred as SGD from vendor location and $$ symbol — no explicit currency code on receipt. GST is itemised as $$1.06 so that value is used directly; it is not a refund. Payment method 'Visa Tap' normalised to 'visa'. Category is electronics / tablet based on line items."
+}
