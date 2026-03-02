@@ -14,7 +14,7 @@ async def main():
     )
     llmproxy = LlmProxy(
         base_url="http://192.168.68.222:4040",
-        api_key=get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential"),
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
         models={
             "extractor": "openai/claude-gemini-12",
             "reviewer": "openai/falcon-7b",

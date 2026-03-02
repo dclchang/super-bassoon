@@ -20,5 +20,5 @@ jobs:
           
       - name: Run pylint
         shell: bash
-        run: pylint src/super-bassoon/ --disable=C0114,C0115,C0116; code=$?; if (( code & 3 )); then exit $code; fi
+        run: pylint src/super-bassoon/ --disable=C0114,C0115,C0116 --errors-only
         

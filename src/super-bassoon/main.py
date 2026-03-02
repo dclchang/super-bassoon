@@ -13,7 +13,7 @@ PAPERLESS_URL = "http://192.168.68.222:8000"
 PAPERLESS_TOKEN = get_secret("op://homelab/paperless-api-token/credential")
 
 LITELLM_URL = "http://192.168.68.222:4040"
-LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-claude-code/credential")
+LITELLM_API_KEY = get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential")
 EXTRACTOR_MODEL = "openai/claude-gemini-12"
 REVIEWER_MODEL = "openai/falcon-7b"
 EMBEDDER_MODEL = "openai/nomic-embed-text"
