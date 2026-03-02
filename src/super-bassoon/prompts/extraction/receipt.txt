@@ -7,9 +7,6 @@ Respond with ONLY a valid JSON object — no explanation, no markdown code fence
 METADATA SCHEMA:
 $schema
 
-CALLER-SUPPLIED CONTEXT (use to resolve ambiguities such as currency or country):
-$context
-
 FALLBACK & EDGE CASE RULES:
 - If a field cannot be determined from the text, set it to null.
 - For ambiguous values, use the interpretation most consistent with the rest of the receipt.
@@ -28,15 +25,15 @@ ABN 88 000 014 675
 Date: 15/11/2024 2:32 PM
 Receipt No: 00123
 
-Kettle's Sea Salt Chips 175g     $4.50
-Coca-Cola 600mL                  $4.00
-Milk 2L Full Cream               $3.20
+Kettle's Sea Salt Chips 175g     $$4.50
+Coca-Cola 600mL                  $$4.00
+Milk 2L Full Cream               $$3.20
 
-Subtotal                        $11.70
-GST Included                     $1.06
-Total                           $11.70
+Subtotal                        $$11.70
+GST Included                     $$1.06
+Total                           $$11.70
 
-Visa Tap                        $11.70
+Visa Tap                        $$11.70
 Approved
 """
 
@@ -54,5 +51,5 @@ Example output:
   "payment_method": "visa",
   "category": "food & drink",
   "sub_category": "groceries",
-  "reasoning": "Vendor is 'Woolworths Express' from the header — not the street address or any product brand. Receipt number taken from 'Receipt No: 00123'. Date normalised from '15/11/2024 2:32 PM' to ISO 8601. Currency inferred as AUD from Sydney address and $ symbol — no explicit currency code on receipt. GST is itemised as $1.06 so that value is used directly; it is not a refund. Payment method 'Visa Tap' normalised to 'visa'. Category is food & drink / groceries based on line items."
+  "reasoning": "Vendor is 'Woolworths Express' from the header — not the street address or any product brand. Receipt number taken from 'Receipt No: 00123'. Date normalised from '15/11/2024 2:32 PM' to ISO 8601. Currency inferred as AUD from Sydney address and $$ symbol — no explicit currency code on receipt. GST is itemised as $$1.06 so that value is used directly; it is not a refund. Payment method 'Visa Tap' normalised to 'visa'. Category is food & drink / groceries based on line items."
 }
