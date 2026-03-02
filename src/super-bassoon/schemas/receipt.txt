@@ -9,6 +9,6 @@ METADATA SCHEMA:
 - "gst_amount": The GST (or equivalent tax) amount as a separate line item. For refunds, this will be negative. Set to 0 if GST is only mentioned as included in the total with no itemised amount. Set to null if it is unclear whether GST applies at all (e.g. an overseas receipt with no tax mention). (number, or null)
 - "is_refund": Whether this receipt represents a refund or return. (boolean — true or false, or null if not determinable)
 - "payment_method": The payment method used. Prefer the most specific value available (e.g. "visa" over "credit card"). Normalise to lowercase. Examples: "cash", "visa", "mastercard", "amex", "eftpos", "paypal", "bank transfer", "gift card". (string, or null if not found)
-- "category": MUST be exactly one of: "electronics", "food & drink", "travel", "health & wellness", "home & garden", "school", "entertainment", "vehicle", "insurance", "other"
+- "category": MUST be exactly one of: "electronics", "food & drink", "travel", "health & wellness", "home & garden", "school", "entertainment", "vehicle", "insurance", "clothing", "other"
 - "sub_category": A sub-classification within the category (e.g. "groceries", "networking gear", "software subscription", "fuel", "restaurant"). (string, or null if not determinable)
 - "reasoning": A concise explanation of your thinking for non-obvious fields — particularly any that were set to null, any ambiguous values, OCR issues encountered, and how currency or vendor was inferred. Always populate this field.
