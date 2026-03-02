@@ -13,32 +13,34 @@ class Embedder:
 
     def embed(self):
         dt = "receipt"  # for now, hardcode to just process receipts; could be made dynamic later
-        pending_docs = Document.select().where((Document.status == 'pending') & (Document.type == dt))
-        for record in pending_docs:            
-            print(f"Processing document ID {record.id} of type {record.type}...")
+        pending_documents = Document.select().where((Document.status == 'pending') & (Document.type == dt))
+        for document in pending_documents:
+            if document.id not in [222, 1896, 645, 681, 137]:
+                continue
+            print(f"Processing document ID {document.id} of type {document.type}...")
             with db.atomic():
-                record.status = "processing"
-                record.save()
+                document.status = "processing"
+                document.save()
 
-            content = record.content
+            content = document.content
             extraction = self.llm.extract(
                 document=json.loads(content),  # Convert the string back to a dict for processing
                 document_type=dt,
             )
 
-            review = self.llm.review(extracted=extraction, document_type=record.type)
-            summary = self.llm.summarise(extracted=extraction, document_type=record.type)
+            review = self.llm.review(extracted=extraction, document_type=document.type)
+            summary = self.llm.summarise(extracted=extraction, document_type=document.type)
 
             vector = self.llm.vectorise(text=summary)
-            self.vectordb.upsert(vector=vector, payload=extraction, collection_name=f"{record.type}_collection")
+            self.vectordb.upsert(vector=vector, payload=extraction, collection_name=f"{document.type}_collection")
 
             with db.atomic():
-                record.status = "processed"
-                record.score = review["score"]  # store the review score in the DB for future reference
-                record.score_reason = json.dumps(review["issues"])  # store the review issues as JSON string in the DB
-                record.structured_content = extraction  # store the entire extracted JSON in the DB for future reference
-                record.summary = summary  # store the summary in the DB for future reference
-                record.save()
+                document.status = "processed"
+                document.score = review["score"]  # store the review score in the DB for future reference
+                document.score_reason = json.dumps(review["issues"])  # store the review issues as JSON string in the DB
+                document.structured_content = extraction  # store the entire extracted JSON in the DB for future reference
+                document.summary = summary  # store the summary in the DB for future reference
+                document.save()
 
 
 

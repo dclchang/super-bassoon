@@ -25,7 +25,7 @@ class Retriever:
                 return ""
             return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
-    def produce(self):
+    def retrieve(self):
             """
             source_documents: List of dicts [{'id': 4923, 'path': '...', 'ocr': '...'}]
             """
@@ -167,6 +167,6 @@ if __name__ == "__main__":
     paperless = PaperlessNgx(
          base_url="http://192.168.68.222:8000", 
          api_key=get_secret("op://homelab/paperless-api-token/credential"))
-    producer = Retriever(paperless=paperless)
-    producer.produce()
+    retriever = Retriever(paperless=paperless)
+    retriever.retrieve()
 
