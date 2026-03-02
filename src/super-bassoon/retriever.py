@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import hashlib
 import json
@@ -11,7 +12,6 @@ from paperless import PaperlessNgx
 from pathlib import Path
 
 class Retriever:
-    #def __init__(self, paperless_url: str = None, paperless_token: str = None):
     def __init__(self, paperless: PaperlessNgx):
         self.paperless = paperless
 
@@ -25,7 +25,7 @@ class Retriever:
                 return ""
             return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
-    def retrieve(self):
+    async def retrieve(self):
             """
             source_documents: List of dicts [{'id': 4923, 'path': '...', 'ocr': '...'}]
             """
@@ -33,12 +33,12 @@ class Retriever:
             update_count = 0
             skipped_count = 0
 
-            document_type_ids = self.paperless.get_document_types()
+            document_type_ids = await self.paperless.get_document_types()
             document_types = [ dt['name'] for dt in document_type_ids ]
 
             for dt in document_types:
-                document_ids = self.paperless.get_document_ids_by_type(dt)
-                source_documents = [self.paperless.get_document(doc_id) for doc_id in document_ids]
+                document_ids = await self.paperless.get_document_ids_by_type(dt)
+                source_documents = [await self.paperless.get_document(doc_id) for doc_id in document_ids]
 
                 # db.atomic() wraps everything in one transaction. 
                 # This is CRITICAL for performance when syncing 2,000+ docs.
@@ -163,10 +163,14 @@ class Retriever:
 
 
 if __name__ == "__main__":
-    # Example usage
-    paperless = PaperlessNgx(
-         base_url="http://192.168.68.222:8000", 
-         api_key=get_secret("op://homelab/paperless-api-token/credential"))
-    retriever = Retriever(paperless=paperless)
-    retriever.retrieve()
+    import asyncio
+    async def main():
+        paperless = PaperlessNgx(
+             base_url="http://192.168.68.222:8000", 
+             api_key=get_secret("op://homelab/paperless-api-token/credential"))
+        retriever = Retriever(paperless=paperless)
+        await retriever.retrieve()
+        await paperless.close()
+    
+    asyncio.run(main())
 

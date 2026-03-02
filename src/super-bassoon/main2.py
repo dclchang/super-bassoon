@@ -1,3 +1,4 @@
+import asyncio
 from paperless import PaperlessNgx
 from op import get_secret
 from llmproxy import LlmProxy
@@ -6,7 +7,7 @@ from models.base import db
 from retriever import Retriever
 import rapidfuzz
 
-if __name__ == "__main__":
+async def main():
     paperless = PaperlessNgx(
          base_url="http://192.168.68.222:8000",
          api_key=get_secret("op://homelab/paperless-api-token/credential")
@@ -23,7 +24,7 @@ if __name__ == "__main__":
     vectordb = VectorDb(base_url="http://192.168.68.222:6333")
 
     query = "What did I buy with a receipt number of 'INV-34183630'?"
-    document_types = [dt['name'] for dt in paperless.get_document_types()]
+    document_types = [dt['name'] for dt in await paperless.get_document_types()]
     document_type = llmproxy.query_classifier(query=query, document_types=document_types)
     filter = llmproxy.query_filters(query=query, document_type=document_type)
 
@@ -46,5 +47,7 @@ if __name__ == "__main__":
     for point in results.points:
         print(f"Document ID: {point.id}, Score: {point.score}, Payload: {point.payload}")
 
+    await paperless.close()
 
-
+if __name__ == "__main__":
+    asyncio.run(main())
