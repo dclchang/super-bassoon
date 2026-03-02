@@ -8,6 +8,8 @@ Super Bassoon extracts structured data from receipts using LLMs (via LiteLLM), s
 
 ## Features
 
+**Privacy first**: All processing is done locally via your own LiteLLM instance. Documents are not sent to third-party cloud APIs.
+
 - **Document Retrieval** - Syncs documents from PaperlessNGX
 - **LLM Extraction** - Extracts structured data (vendor, amount, date, etc.) from receipts
 - **Quality Review** - Scores extractions for accuracy
