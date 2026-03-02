@@ -1,0 +1,23 @@
+name: Pylint
+
+on: [push, pull_request]
+
+jobs:
+  pylint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint requests qdrant-client litellm peewee rapidfuzz aiohttp
+          
+      - name: Run pylint
+        run: |
+          pylint src/super-bassoon/ --disable=C0114,C0115,C0116
