@@ -63,6 +63,10 @@ python -m super_bassoon.querier
 - **VectorDb** - Qdrant wrapper for vector storage
 - **Querier** - Semantic search over embedded documents
 
+## Contributing
+
+Not currently accepting contributions. This is a personal project.
+
 ## License
 
 See [LICENSE](LICENSE) for details.
