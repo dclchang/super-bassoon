@@ -3,7 +3,8 @@ from .base import BaseModel, db, JsonField
 
 class Document(BaseModel):
     id = peewee.IntegerField(primary_key=True)
-    type = peewee.CharField(max_length=100)  # e.g. "receipt", "invoice"
+    document_type = peewee.CharField(max_length=100)  # e.g. "receipt", "invoice"
+    document_sub_type = peewee.CharField(max_length=100, null=True)  # e.g. "grocery_receipt", "utility_invoice"
     created_at = peewee.DateTimeField(null=True)  # timestamp from PaperlessNGX
     added_at = peewee.DateTimeField(null=True)  # when we added this to our DB
     updated_at = peewee.DateTimeField(null=True)  # when we last updated this

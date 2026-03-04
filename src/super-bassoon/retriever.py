@@ -59,7 +59,7 @@ class Retriever:
                             # Case: New Document
                             Document.create(
                                 id=doc_id,
-                                type=dt,
+                                document_type=dt,
                                 content=txt,
                                 hash=new_hash,
                                 status='pending'
@@ -70,6 +70,7 @@ class Retriever:
                             # Case: Existing document, but content has changed
                             record.content = txt
                             record.hash = new_hash
+                            record.document_type = dt  # Update document type in case it changed
                             record.status = 'pending'  # Reset so Consumer re-processes it
                             record.updated_at = datetime.datetime.now()
                             record.save()
