@@ -16,7 +16,7 @@ class Embedder:
 
     async def _process_document(self, document) -> None:
         doc_id = document.id
-        doc_type = document.type
+        doc_type = document.document_type
 
         with db.atomic():
             document.status = "processing"
@@ -53,7 +53,7 @@ class Embedder:
     async def embed(self):
         dt = "receipt"
         pending_documents = list(
-            Document.select().where((Document.status in ['pending', 'processing']) & (Document.type == dt))
+            Document.select().where((Document.status in ['pending', 'processing']) & (Document.document_type == dt))
         )
 
         if not pending_documents:
@@ -77,7 +77,7 @@ if __name__ == "__main__":
             base_url="http://192.168.68.222:4040",
             api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
             models={
-                "extractor": "openai/claude-gemini-12",
+                "extractor": "openai/nous-hermes-2-pro",
                 "reviewer": "openai/falcon-7b",
                 "embedding": "openai/nomic-embed-text"
             },
