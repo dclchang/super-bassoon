@@ -14,7 +14,8 @@ class Document(BaseModel):
     status = peewee.CharField(max_length=20, default="new")  # e.g. "new", "processed", "error"
     score = peewee.FloatField(default=0)  # optional field to store review score from LLM
     score_reason = peewee.TextField(null=True)  # optional field to store LLM's explanation of the score
-    
+    error = peewee.TextField(null=True)  # optional field to store error messages if processing fails
+
     class Meta:
         table_name = "documents"
 

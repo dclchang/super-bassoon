@@ -47,6 +47,7 @@ class Embedder:
             print(f"Error processing document {doc_id}: {e}")
             with db.atomic():
                 document.status = "failed"
+                document.error = str(e)
                 document.save()
 
     async def embed(self):
