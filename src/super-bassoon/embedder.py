@@ -66,30 +66,29 @@ class Embedder:
 
         print("All documents processed")
 
+async def main():
+    paperless = PaperlessNgx(
+        base_url="http://192.168.68.222:8000",
+        api_key=get_secret("op://homelab/paperless-api-token/credential"))
+
+    llmproxy = LlmProxy(
+        base_url="http://192.168.68.222:4040",
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
+        models={
+            "extractor": "openai/claude-gemini-12",
+            "reviewer": "openai/falcon-7b",
+            "embedding": "openai/nomic-embed-text"
+        },
+        max_concurrent=2
+    )
+
+    vectordb = VectorDb(base_url="http://192.168.68.222:6333")
+    consumer = Embedder(
+        llmproxy=llmproxy,
+        vectordb=vectordb,
+    )
+    await consumer.embed()
+    await paperless.close()
 
 if __name__ == "__main__":
-    async def main():
-        paperless = PaperlessNgx(
-            base_url="http://192.168.68.222:8000",
-            api_key=get_secret("op://homelab/paperless-api-token/credential"))
-
-        llmproxy = LlmProxy(
-            base_url="http://192.168.68.222:4040",
-            api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
-            models={
-                "extractor": "openai/nous-hermes-2-pro",
-                "reviewer": "openai/falcon-7b",
-                "embedding": "openai/nomic-embed-text"
-            },
-            max_concurrent=2
-        )
-
-        vectordb = VectorDb(base_url="http://192.168.68.222:6333")
-        consumer = Embedder(
-            llmproxy=llmproxy,
-            vectordb=vectordb,
-        )
-        await consumer.embed()
-        await paperless.close()
-
     asyncio.run(main())
