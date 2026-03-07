@@ -16,14 +16,16 @@ class Querier:
         document_types = [ dt["name"] for dt in await self.paperless.get_document_types() ]
         classification = await self.llm.query_classifier(query=query, document_types=document_types)
         
-        filters = await self.llm.query_filters(query=query, document_type=classification)
+        k = await self.llm.get_top_k(query=query, document_type=classification)
+        filter = await self.llm.get_filters(query=query, document_type=classification)
         results = await asyncio.to_thread(
             self.vectordb.query_points,
             collection_name=f"{classification}_collection",
-            query=vector, query_filter=filters,
-            limit=top_k
+            query=vector, query_filter=filter,
+            limit=k
         )
-        return results.points        
+        rets = [ f for f in results.points if f.score >= 0.7 ]
+        return rets
 
 
 async def main():
@@ -41,7 +43,8 @@ async def main():
     client = QdrantClient(url="http://192.168.68.222:6333")
 
     querier = Querier(llmproxy=llm, vectordb=client, paperless=paperless)
-    results = await querier.query("I remember going to a clinic at Anchorvale. How much did I pay for the consultation?")    
+    #results = await querier.query("I remember going to a clinic at Anchorvale. How much did I pay for the consultation?")    
+    results = await querier.query("How much have I paid for Aussie Broadband last year?")    
     client.close()
 
 if __name__ == "__main__":

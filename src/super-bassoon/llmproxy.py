@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import re
 from pathlib import Path
@@ -162,11 +163,33 @@ class LlmProxy:
         )
         return reply.strip().lower()
 
-    async def query_filters(self, query: str, document_type: str) -> dict:
+    async def get_top_k(self, query: str, document_type: str) -> int:
+        system_msg = (
+            "You are a query analysis assistant. "
+            "Your task is to determine the appropriate number of results (k) to return for a vector database query based on the user's natural language query."
+            f"Consider the specificity of the user's query for the given document type {document_type} and how many relevant results are likely needed to satisfy it."
+            "Return only a single integer number (e.g. 5) with no additional text, explanations, or formatting."
+        )
+        reply = await self.chat(
+            model=self.extractor_model,
+            prompt=query,
+            system=system_msg,
+            is_json=False
+        )
+        try:
+            k = int(reply.strip())
+            return max(1, min(k, 20))  # constrain k to be between 1 and 20
+        except ValueError:
+            return 5  # default value if parsing fails
+
+
+    async def get_filters(self, query: str, document_type: str) -> dict:
         schema = self._load_schema(document_type=document_type)
+        today = datetime.date.today().isoformat()
         system_msg = Template('''
 You are a RAG query planning assistant. Given a natural language question, you must return a JSON object 
-that represents a Qdrant filter. The JSON must conform exactly to the following structure:
+that represents a Qdrant filter for date ranges and monetary ranges ONLY. DO NOT return filters for any
+other fields. The JSON must conform exactly to the following structure:
 
 {
     "must": [                          # ALL conditions must match (AND)
@@ -188,27 +211,50 @@ that represents a Qdrant filter. The JSON must conform exactly to the following 
     "must_not": [...]                  # NOT conditions
 }
 
-Rules:
-- Only include "must", "should", or "must_not" keys if they are needed
-- Only use field names from this list: [vendor, document_type, total_amount, date, correspondent]
-- For dates use ISO 8601 format: "2024-01-31"
-- Return ONLY the JSON object, no explanation or markdown
 
+## total_amount
+Only extract if the user explicitly mentions a dollar amount or price.
+Apply a range based on the user's wording:
+- No qualifier ("I spent $$300")      → gte: 297.00, lte: 303.00  (±1%)
+- "about / around / roughly" $$300    → gte: 255.00, lte: 345.00  (±15%)
+- "approximately" $$300               → gte: 240.00, lte: 360.00  (±20%)
+- "over / more than" $$300            → gte: 300.00  (no upper bound)
+- "under / less than" $$300           → lte: 300.00  (no lower bound)
+- "between $$200 and $$400"            → gte: 200.00, lte: 400.00
+Place total_amount in "should", never "must".
+DO NOT include total_amount in the filter unless the user's message contains 
+an explicit dollar figure or price (e.g. "$$300", "300 dollars", "three hundred dollars").
+If the user asks "how much did I pay" or "what did it cost" — this is a QUESTION 
+about an amount, NOT a filter on an amount. Omit total_amount entirely.
+If no explicit amount is stated, omit total_amount entirely. No exceptions.
+
+## purchase_date
+Only extract if the user mentions a specific date, month, year, or time period.
+Convert relative terms based on today's date ($today).
+- "last month"                       → gte: first day of last month, lte: last day of last month
+- "last year"                        → gte: 2024-01-01, lte: 2024-12-31
+- "in February"                      → gte: 2025-02-01, lte: 2025-02-28
+- "recently" / "the other day"       → omit, too vague to filter
+- "before March"                     → lte: 2025-02-28  (no lower bound)
+- "since January"                    → gte: 2025-01-01  (no upper bound)
+Place purchase_date in "must".
+DO NOT include purchase_date in the filter unless the user's message contains 
+an explicit date (e.g. "Nov 2024", "last year").
+If the user asks "when did I go" or "when was" — this is a QUESTION 
+about an amount, NOT a filter on a date. Omit purchase_date entirely.
+If no explicit time frame is stated, omit purchase_date entirely. No exceptions.
+
+                              
 Example input: "find electricity bills from AGL under $$100 in 2024"
 Example output:
 {
     "must": [
-        {"key": "document_type", "match": {"value": "bill"}},
-        {"key": "vendor", "match": {"value": "AGL"}},
         {"key": "total_amount", "range": {"lt": 100}},
-        {"key": "date", "range": {"gte": "2024-01-01", "lte": "2024-12-31"}}
+        {"key": "purchase_date", "range": {"gte": "2024-01-01", "lte": "2024-12-31"}}
     ]
 }
-
-Refer to the following schema for field definitions:
-$schema
 ''')
-        system_msg = system_msg.substitute(schema=schema)
+        system_msg = system_msg.substitute(today=today)
         reply = await self.chat(
             model=self.extractor_model,
             prompt=query,
@@ -232,7 +278,7 @@ if __name__ == "__main__":
                 "reviewer": "openai/falcon-7b",
                 "embedding": "openai/nomic-embed-text"
             })
-        classification = await llmproxy.query_filters(
+        classification = await llmproxy.get_filters(
             query="When was my Aussie Broadband under $100?",
             document_type="receipt"
         )
