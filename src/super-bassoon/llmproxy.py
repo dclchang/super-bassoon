@@ -100,7 +100,7 @@ class LlmProxy:
         system_msg = (
             f"You are a data processing assistant. Your task is to convert structered JSON "
             "that represents a {document_type} into a single, concise, natural language paragraph."
-            "Do not return anu markdown (no bolding, headers or bullet points)."
+            "Do not return any markdown (no bolding, headers or bullet points)."
             "Be concise and always start with 'Receipt from [Vendor]...', no other start of the sentence is acceptable."
         ).format(document_type=document_type)
 
