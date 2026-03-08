@@ -1,4 +1,4 @@
-from op import get_secret
+from super_bassoon.op import get_secret
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, QueryResponse
 import uuid

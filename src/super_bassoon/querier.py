@@ -1,9 +1,9 @@
 import asyncio
-from paperless import PaperlessNgx
-from llmproxy import LlmProxy
+from super_bassoon.paperless import PaperlessNgx
+from super_bassoon.llmproxy import LlmProxy
 from qdrant_client import QdrantClient
 from qdrant_client.models import ScoredPoint
-from op import get_secret
+from super_bassoon.op import get_secret
 
 class Querier:
     def __init__(self, llmproxy: LlmProxy, vectordb: QdrantClient, paperless: PaperlessNgx):
@@ -14,10 +14,10 @@ class Querier:
     async def query(self, query: str, top_k: int=5) -> list[ScoredPoint]:
         vector = await self.llm.vectorise(text=query)
         document_types = [ dt["name"] for dt in await self.paperless.get_document_types() ]
-        classification = await self.llm.query_classifier(query=query, document_types=document_types)
+        classifications = await self.llm.query_classifier(query=query, document_types=document_types)
         
-        k = await self.llm.get_top_k(query=query, document_type=classification)
-        filter = await self.llm.get_filters(query=query, document_type=classification)
+        k = await self.llm.get_top_k(query=query, document_type=classifications[0] if classifications else "receipt")
+        filter = await self.llm.get_filters(query=query, document_types=classifications)
         results = await asyncio.to_thread(
             self.vectordb.query_points,
             collection_name="my_collection",

@@ -19,5 +19,11 @@ dependencies = [
     "aiohttp"
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pyright]
+include = ['src']
+
 [project.scripts]
 super-bassoon = "super_bassoon.main:main"

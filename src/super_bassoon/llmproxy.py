@@ -4,12 +4,12 @@ import json
 import re
 from pathlib import Path
 from string import Template
-from typing import Optional, List, Dict, Any
+from typing import List, Union, cast
 
 import litellm
 
-from paperless import PaperlessNgx
-from op import get_secret
+from super_bassoon.paperless import PaperlessNgx
+from super_bassoon.op import get_secret
 
 
 class LlmProxy:
@@ -20,12 +20,9 @@ class LlmProxy:
         self.extractor_model = models.get("extractor", "openai/claude-gemini-12")
         self.reviewer_model = models.get("reviewer", "openai/falcon-7b")
         self.embedding_model = models.get("embedding", "openai/nomic-embed-text")
-
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
-        litellm.set_verbose = False
-
-    async def extract(self, document: dict, document_type: str) -> dict:
+    async def extract(self, document: dict, document_type: str) -> Union[dict, str]:
         system_content = self._load_extraction_prompt(document_type=document_type)
 
         prompt_text = document.get("content", "")
@@ -43,21 +40,25 @@ class LlmProxy:
         )
         return self._parse_response(raw, metadata)
 
-    async def chat(self, model: str, prompt: str, system: str = None, is_json: bool = True) -> str:
+    async def chat(self, model: str, prompt: str, system: str, is_json: bool = True) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
         async with self._semaphore:
-            response = await litellm.acompletion(
+            response = cast(litellm.ModelResponse, await litellm.acompletion(
                 model=model,
                 messages=messages,
                 temperature=0,
                 response_format={"type": "json_object"} if is_json else None
-            )
+            ))
+        choice = response.choices[0] if response.choices else None  # type: ignore[union-attr]
+        content = choice.message.content if choice and choice.message else None  # type: ignore[union-attr]
 
-        return response.choices[0].message.content
+        if content is None:
+            raise ValueError("Empty response from LLM")
+        return content
 
     def _load_schema(self, document_type: str) -> str:
         schema_dir = Path(__file__).parent / "schemas"
@@ -79,7 +80,7 @@ class LlmProxy:
         prompt = prompt.substitute(schema=schema)
         return prompt
 
-    def _parse_response(self, raw: str, metadata: dict) -> dict:
+    def _parse_response(self, raw: str, metadata: dict) -> Union[dict, str]:
         try:
             result = json.loads(raw.strip())
         except json.JSONDecodeError:
@@ -149,20 +150,26 @@ class LlmProxy:
             )
         return response['data'][0]['embedding']
 
-    async def query_classifier(self, query: str, document_types: List[str]) -> str:
+    async def query_classifier(self, query: str, document_types: List[str]) -> List[str]:
         system_msg = (
             "You are a query classifier assistant."
-            "Your task is to analyze the user's query and determine which document type it is referring to."
+            "Your task is to analyze the user's query and determine which document types could potentially match."
             f"The possible document types are: {', '.join(document_types)}"
-            "Return only ONE best matching answer and nothing else, no explanations, no markdown, no code fences, just the document type as a single word in lowercase."
+            "Return a JSON array of ALL matching document types in lowercase. Example: [\"receipt\", \"bill\"]. No explanations, no markdown."
         )
         reply = await self.chat(
             model=self.extractor_model,
             prompt=query,
             system=system_msg,
-            is_json=False
+            is_json=True
         )
-        return reply.strip().lower()
+        try:
+            result = json.loads(reply.strip())
+            if isinstance(result, list):
+                return result
+            return [result]
+        except json.JSONDecodeError:
+            return [reply.strip().lower()]
 
     async def get_top_k(self, query: str, document_type: str) -> int:
         system_msg = (
@@ -184,7 +191,8 @@ class LlmProxy:
             return 5  # default value if parsing fails
 
 
-    async def get_filters(self, query: str, document_type: str) -> dict:
+    async def get_filters(self, query: str, document_types: List[str]) -> dict:
+        document_type = document_types[0]
         schema = self._load_schema(document_type=document_type)
         today = datetime.date.today().isoformat()
         system_msg = Template('''
@@ -261,7 +269,15 @@ Example output:
             prompt=query,
             system=system_msg
         )
-        return json.loads(reply)
+        filter_result = json.loads(reply)
+        
+        doc_type_conditions = [{"key": "document_type", "match": {"value": dt}} for dt in document_types]
+        if "should" in filter_result:
+            filter_result["should"].extend(doc_type_conditions)
+        else:
+            filter_result["should"] = doc_type_conditions
+        
+        return filter_result
 
 
 if __name__ == "__main__":
@@ -281,7 +297,7 @@ if __name__ == "__main__":
             })
         classification = await llmproxy.get_filters(
             query="When was my Aussie Broadband under $100?",
-            document_type="receipt"
+            document_types=["receipt"]
         )
         print(classification)
         await paperless.close()

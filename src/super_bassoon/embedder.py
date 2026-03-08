@@ -1,12 +1,12 @@
 import asyncio
 import json
 
-from models.base import db
-from models.document import Document
-from op import get_secret
-from llmproxy import LlmProxy
-from paperless import PaperlessNgx
-from vectordb import VectorDb
+from super_bassoon.models.base import db
+from super_bassoon.models.document import Document
+from super_bassoon.op import get_secret
+from super_bassoon.llmproxy import LlmProxy
+from super_bassoon.paperless import PaperlessNgx
+from super_bassoon.vectordb import VectorDb
 
 
 class Embedder:

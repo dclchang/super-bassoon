@@ -5,8 +5,8 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src" / "super-bassoon"))
 
 import asyncio
 import json
-from llmproxy import LlmProxy
-from op import get_secret
+from super_bassoon.llmproxy import LlmProxy
+from super_bassoon.op import get_secret
 
 
 DOCUMENT_TYPES = [
