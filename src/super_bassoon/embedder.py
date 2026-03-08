@@ -1,6 +1,5 @@
 import asyncio
 import json
-
 from super_bassoon.models.base import db
 from super_bassoon.models.document import Document
 from super_bassoon.op import get_secret
@@ -14,16 +13,16 @@ class Embedder:
         self.llm = llmproxy
         self.vectordb = vectordb
 
-    async def _process_document(self, document) -> None:
+    async def _process_document(self, document: Document) -> None:
         doc_id = document.id
-        doc_type = document.document_type
+        doc_type = str(document.document_type)
 
         with db.atomic():
             document.status = "processing"
             document.save()
 
         try:
-            content = document.content
+            content = str(document.content)
             extraction = await self.llm.extract(document=json.loads(content), document_type=doc_type)
 
             review = await self.llm.review(extracted=extraction, document_type=doc_type)

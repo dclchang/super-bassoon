@@ -24,6 +24,7 @@ where = ["src"]
 
 [tool.pyright]
 include = ['src']
+typeCheckingMode = "basic"
 
 [project.scripts]
 super-bassoon = "super_bassoon.main:main"
