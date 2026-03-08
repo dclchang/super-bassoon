@@ -30,6 +30,7 @@ class LlmProxy:
 
         prompt_text = document.get("content", "")
         metadata = {k: document[k] for k in ("document_id", "created", "added") if k in document}
+        metadata["document_type"] = document_type
 
         if metadata:
             meta_lines = [f"{k}: {v}" for k, v in metadata.items()]

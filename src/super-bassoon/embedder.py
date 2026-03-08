@@ -31,7 +31,7 @@ class Embedder:
 
             vector = await self.llm.vectorise(text=summary)
             self.vectordb.upsert(vector=vector, payload=extraction,
-                collection_name=f"{doc_type}_collection"
+                collection_name="my_collection"
             )
 
             with db.atomic():

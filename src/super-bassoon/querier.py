@@ -20,7 +20,7 @@ class Querier:
         filter = await self.llm.get_filters(query=query, document_type=classification)
         results = await asyncio.to_thread(
             self.vectordb.query_points,
-            collection_name=f"{classification}_collection",
+            collection_name="my_collection",
             query=vector, query_filter=filter,
             limit=k
         )

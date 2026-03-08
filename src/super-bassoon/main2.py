@@ -43,7 +43,7 @@ async def main():
 
     vector = await llmproxy.vectorise(text=query)
     #results = vectordb.query(query=vector, collection_name=f"{document_type}_collection", filters=filter, top_k=5)
-    results = vectordb.query2(query=vector, collection_name=f"{document_type}_collection", top_k=5)
+    results = vectordb.query2(query=vector, collection_name="my_collection", top_k=5)
     for point in results.points:
         print(f"Document ID: {point.id}, Score: {point.score}, Payload: {point.payload}")
 
