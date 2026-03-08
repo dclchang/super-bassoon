@@ -22,7 +22,7 @@ class LlmProxy:
         self.embedding_model = models.get("embedding", "openai/nomic-embed-text")
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def extract(self, document: dict, document_type: str) -> Union[dict, str]:
+    async def extract(self, document: dict, document_type: str) -> dict:
         system_content = self._load_extraction_prompt(document_type=document_type)
 
         prompt_text = document.get("content", "")
@@ -80,7 +80,7 @@ class LlmProxy:
         prompt = prompt.substitute(schema=schema)
         return prompt
 
-    def _parse_response(self, raw: str, metadata: dict) -> Union[dict, str]:
+    def _parse_response(self, raw: str, metadata: dict) -> dict:
         try:
             result = json.loads(raw.strip())
         except json.JSONDecodeError:
@@ -89,11 +89,14 @@ class LlmProxy:
                 try:
                     result = json.loads(m.group(0))
                 except:
-                    return raw
+                    raise ValueError(f"Failed to parse JSON from LLM response: {raw[:100]}...")
             else:
-                return raw
+                raise ValueError(f"No JSON object found in LLM response: {raw[:100]}...")
 
-        if isinstance(result, dict) and metadata:
+        if not isinstance(result, dict):
+            raise ValueError(f"LLM response is not a dict: {type(result).__name__}")
+
+        if metadata:
             for k, v in metadata.items():
                 result.setdefault(k, v)
         return result
