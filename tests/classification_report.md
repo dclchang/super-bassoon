@@ -14,7 +14,7 @@
 | How much did I buy Widget X for? | receipt | receipt | PASS |
 | What was my average spending for Acme Energy? | receipt | statement | FAIL |
 | Has my Contoso bill ever gone above $100 and if so when? | receipt | bill | FAIL |
-| How much did I pay for my last electricity bill? | receipt | bill | FAIL |
+| How much did I pay for my last electricity bill? | receipt | receipt | PASS |
 | What did I spend at the supermarket last week? | receipt | receipt | PASS |
 | How much was my medical consultation? | receipt | receipt | PASS |
 | What was the total cost of my online order from Amazon? | receipt | receipt | PASS |
@@ -25,7 +25,7 @@
 | How much was my dental checkup? | receipt | receipt | PASS |
 | What was the total at the petrol station? | receipt | receipt | PASS |
 | How much did I pay for my internet bill? | receipt | receipt | PASS |
-| What did I spend on my lunch? | receipt | receipt | PASS |
+| What did I spend on my lunch? | receipt | statement | FAIL |
 | How much was my phone bill? | receipt | bill | FAIL |
 | What was the cost of my Uber ride? | receipt | receipt | PASS |
 | How much did I pay for my Netflix subscription? | receipt | receipt | PASS |
@@ -53,6 +53,6 @@
 | What are the booking details for my hotel? | not_receipt | booking | PASS |
 | What was my tax invoice number? | not_receipt | invoice | PASS |
 | Can I see my prescription details? | not_receipt | prescription | PASS |
-| When is my next appointment scheduled? | not_receipt | booking | PASS |
+| When is my next appointment scheduled? | not_receipt | schedule | PASS |
 | What are the lodgement requirements? | not_receipt | lodgement | PASS |
 | What was my inventory count for last quarter? | not_receipt | inventory | PASS |
