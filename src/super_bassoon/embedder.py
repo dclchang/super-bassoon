@@ -82,11 +82,11 @@ async def main():
     )
 
     vectordb = VectorDb(base_url="http://192.168.68.222:6333")
-    consumer = Embedder(
+    embedder = Embedder(
         llmproxy=llmproxy,
         vectordb=vectordb,
     )
-    await consumer.embed()
+    await embedder.embed()
     await paperless.close()
 
 if __name__ == "__main__":

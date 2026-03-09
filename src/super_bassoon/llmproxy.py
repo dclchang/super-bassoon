@@ -40,6 +40,27 @@ class LlmProxy:
         )
         return self._parse_response(raw, metadata)
 
+    def chatsync(self, model: str, prompt: str, system: str, is_json: bool = True) -> str:
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        
+        response = cast(litellm.ModelResponse, litellm.completion(
+            model=model,
+            messages=messages,
+            temperature=0,
+            response_format={"type": "json_object"} if is_json else None
+        ))
+        choice = response.choices[0] if response.choices else None  # type: ignore[union-attr]
+        content = choice.message.content if choice and choice.message else None  # type: ignore[union-attr]
+
+        if content is None:
+            raise ValueError("Empty response from LLM")
+        return content
+
+
     async def chat(self, model: str, prompt: str, system: str, is_json: bool = True) -> str:
         messages = []
         if system:
@@ -196,12 +217,11 @@ class LlmProxy:
 
     async def get_filters(self, query: str, document_types: List[str]) -> dict:
         document_type = document_types[0]
-        schema = self._load_schema(document_type=document_type)
+        #schema = self._load_schema(document_type=document_type)
         today = datetime.date.today().isoformat()
         system_msg = Template('''
 You are a RAG query planning assistant. Given a natural language question, you must return a JSON object 
-that represents a Qdrant filter for date ranges and monetary ranges ONLY. DO NOT return filters for any
-other fields. The JSON must conform exactly to the following structure:
+that represents a Qdrant filter. The JSON must conform exactly to the following structure:
 
 {
     "must": [                          # ALL conditions must match (AND)
@@ -223,6 +243,10 @@ other fields. The JSON must conform exactly to the following structure:
     "must_not": [...]                  # NOT conditions
 }
 
+## document_type
+You MUST include a document_type filter using the "any" clause to match ALL of the following document types: $document_types.
+For example, if document_types is ["invoice", "receipt"], you must return:
+{"key": "document_type", "match": {"any": ["invoice", "receipt"]}}
 
 ## total_amount
 Only extract if the user explicitly mentions a dollar amount or price.
@@ -266,7 +290,7 @@ Example output:
     ]
 }
 ''')
-        system_msg = system_msg.substitute(today=today)
+        system_msg = system_msg.substitute(today=today, document_types=document_types)
         reply = await self.chat(
             model=self.extractor_model,
             prompt=query,
@@ -274,35 +298,46 @@ Example output:
         )
         filter_result = json.loads(reply)
         
-        doc_type_conditions = [{"key": "document_type", "match": {"value": dt}} for dt in document_types]
-        if "should" in filter_result:
-            filter_result["should"].extend(doc_type_conditions)
-        else:
-            filter_result["should"] = doc_type_conditions
-        
         return filter_result
 
+async def main():
+    paperless = PaperlessNgx(
+        base_url="http://192.168.68.222:8000",
+        api_key=get_secret("op://homelab/paperless-api-token/credential"))
+    llmproxy = LlmProxy(
+        base_url="http://192.168.68.222:4040",
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
+        models={
+            "extractor": "openai/claude-gemini-12",
+            "reviewer": "openai/falcon-7b",
+            "embedding": "openai/nomic-embed-text"
+        })
+    classification = await llmproxy.get_filters(
+        query="When was my Aussie Broadband under $100?",
+        document_types=["receipt"]
+    )
+    print(classification)
+    await paperless.close()
 
 if __name__ == "__main__":
-    import asyncio
+    #asyncio.run(main())
+    llmproxy = LlmProxy(
+        base_url="http://192.168.68.222:4040",
+        api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
+        models={
+            #"extractor": "openai/claude-gemini-12",
+            #"extractor": "gemini/gemini/gemini-2.5-flash",
+            #"extractor": "openai/qwen3",
+            #"extractor": "openai/nous-hermes-2-pro",
+            "extractor": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "reviewer": "openai/falcon-7b",
+            "embedding": "openai/nomic-embed-text"
+        })
+    response = llmproxy.chatsync(
+        model=llmproxy.extractor_model,
+        prompt="How are you?",
+        system=(
+            "You are a helpful assistant that answers questions truthfully and informatively. "
+        ))
+    print(response)
 
-    async def main():
-        paperless = PaperlessNgx(
-            base_url="http://192.168.68.222:8000",
-            api_key=get_secret("op://homelab/paperless-api-token/credential"))
-        llmproxy = LlmProxy(
-            base_url="http://192.168.68.222:4040",
-            api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
-            models={
-                "extractor": "openai/claude-gemini-12",
-                "reviewer": "openai/falcon-7b",
-                "embedding": "openai/nomic-embed-text"
-            })
-        classification = await llmproxy.get_filters(
-            query="When was my Aussie Broadband under $100?",
-            document_types=["receipt"]
-        )
-        print(classification)
-        await paperless.close()
-
-    asyncio.run(main())
