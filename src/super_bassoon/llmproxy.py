@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 from string import Template
-from typing import List, Union, cast
+from typing import Dict, List, Optional, Union, cast
 
 import litellm
 
@@ -61,18 +61,30 @@ class LlmProxy:
         return content
 
 
-    async def chat(self, model: str, prompt: str, system: str, is_json: bool = True) -> str:
+    async def chat(self, model: str, prompt: str, system: str, is_json: bool = True, json_schema: Optional[Dict] = None) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
+
+        response_format: Union[Dict, None] = None
+        if is_json:
+            response_format = {"type": "json_object"}
+            if json_schema:
+                response_format = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "user_schema",
+                        "schema": json_schema
+                    }
+                }
 
         async with self._semaphore:
             response = cast(litellm.ModelResponse, await litellm.acompletion(
                 model=model,
                 messages=messages,
                 temperature=0,
-                response_format={"type": "json_object"} if is_json else None
+                response_format=response_format
             ))
         choice = response.choices[0] if response.choices else None  # type: ignore[union-attr]
         content = choice.message.content if choice and choice.message else None  # type: ignore[union-attr]
@@ -177,7 +189,7 @@ class LlmProxy:
     async def query_classifier(self, query: str, document_types: List[str]) -> List[str]:
         system_msg = (
             "You are a query classifier assistant."
-            "Your task is to analyze the user's query and determine which document types could potentially match."
+            "Your task is to analyze the user's query and determine all document types that could potentially match the users query"
             f"The possible document types are: {', '.join(document_types)}"
             "Return a JSON array of ALL matching document types in lowercase. Example: [\"receipt\", \"bill\"]. No explanations, no markdown."
         )
@@ -291,10 +303,89 @@ Example output:
 }
 ''')
         system_msg = system_msg.substitute(today=today, document_types=document_types)
+
+        filter_schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "must": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "key": {"const": "document_type"},
+                            "match": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "any": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
+                                },
+                                "required": ["any"]
+                            }
+                        },
+                        "required": ["key", "match"]
+                    }
+                },
+                "should": {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "key": {"const": "purchase_date"},
+                                    "range": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "minProperties": 1,
+                                        "properties": {
+                                            "gt":  {"type": ["number", "string"]},
+                                            "gte": {"type": ["number", "string"]},
+                                            "lt":  {"type": ["number", "string"]},
+                                            "lte": {"type": ["number", "string"]}
+                                        }
+                                    }
+                                },
+                                "required": ["key", "range"]
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "key": {"const": "total_amount"},
+                                    "range": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "minProperties": 1,
+                                        "properties": {
+                                            "gt":  {"type": "number"},
+                                            "gte": {"type": "number"},
+                                            "lt":  {"type": "number"},
+                                            "lte": {"type": "number"}
+                                        }
+                                    }
+                                },
+                                "required": ["key", "range"]
+                            }
+                        ]
+                    }
+                },
+                "must_not": {"type": "array"}
+            },
+            "required": ["must"]
+        }
+
         reply = await self.chat(
             model=self.extractor_model,
             prompt=query,
-            system=system_msg
+            system=system_msg,
+            json_schema=filter_schema
         )
         filter_result = json.loads(reply)
         
