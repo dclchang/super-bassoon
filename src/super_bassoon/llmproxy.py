@@ -3,6 +3,7 @@ import datetime
 import json
 import re
 from pathlib import Path
+from qdrant_client.models import ScoredPoint
 from string import Template
 from typing import Dict, List, Optional, Union, cast
 
@@ -61,7 +62,7 @@ class LlmProxy:
         return content
 
 
-    async def chat(self, model: str, prompt: str, system: str, is_json: bool = True, json_schema: Optional[Dict] = None) -> str:
+    async def chat(self, model: str, prompt: str, system: str, is_json: bool = False, json_schema: Optional[Dict] = None) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -86,6 +87,7 @@ class LlmProxy:
                 temperature=0,
                 response_format=response_format
             ))
+            
         choice = response.choices[0] if response.choices else None  # type: ignore[union-attr]
         content = choice.message.content if choice and choice.message else None  # type: ignore[union-attr]
 
@@ -134,23 +136,74 @@ class LlmProxy:
                 result.setdefault(k, v)
         return result
 
-    async def summarise(self, extracted: dict, document_type: str) -> str:
-        system_msg = (
-            f"You are a data processing assistant. Your task is to convert structered JSON "
-            "that represents a {document_type} into a single, concise, natural language paragraph."
-            "Do not return any markdown (no bolding, headers or bullet points)."
-            "Be concise and always start with 'Receipt from [Vendor]...', no other start of the sentence is acceptable."
-        ).format(document_type=document_type)
+    async def generate_questions(self, summary: str) -> list[str]:
+        system_msg = """
+You are a helpful assistant that generates questions based on a receipt summary.
 
-        user_msg = f"Extracted JSON:\n{json.dumps(extracted, indent=2)}\n\n"
+Given a receipt summary, generate 5 different questions that a person might ask 
+when trying to find THIS specific receipt from their personal expense history.
 
-        summary = await self.chat(
+Each question must:
+- Be specific enough that only this receipt would be a good answer
+- Reference the specific vendor, service type, brand, or product where relevant
+- Cover a MIX of specific recall ("STIHL brushcutter at Five Ways") and 
+  broader recall ("outdoor power tools", "garden machinery") — not all five 
+  questions should reference the vendor name
+- Reflect natural conversational language a person uses when recalling a purchase
+  e.g. "my internet bill", "Aussie Broadband payment", "monthly broadband cost"
+- Where dates are involved, use specific dates or time frames from the summary
+  e.g. "in November 2024" rather than "last month" or "last October" or "recently"
+
+Avoid:
+- Generic questions like "how much was spent?" or "what company was paid?" 
+  that could apply to ANY receipt
+- Relative time references like "last October" or "recently" 
+  — use specific dates from the summary instead
+- Retrieval instructions like "can you find..." or "show me..." 
+  — phrase as direct questions instead
+
+IF the summary does not contain enough specific information to generate 5 unique questions,
+then generate as fewer but higher quality questions. Aim for a minimum of 2 and a maximum of 5.
+
+
+Return ONLY a JSON array of 5 strings, no additional text, explanation or markdown.
+"""
+        response = await self.chat(
             model=self.extractor_model,
-            prompt=user_msg,
-            system=system_msg,
-            is_json=False
+            prompt=summary,
+            system=system_msg
         )
-        return summary.strip()
+        return json.loads(response)
+
+    async def summarise(self, extracted: dict, document_type: str) -> str:
+            system_msg = """
+    You are a summarisation assistant. Your task is to take structured JSON data that has been extracted 
+    from a document and write a 3-4 sentence plain English description.
+
+    Rules:
+    - mention the vendor and any brand names of products purchased
+    - describe what the items actually ARE, not just their names
+    (e.g. "Philips Hue" → "Philips Hue smart lighting / smart bulb")
+    - include the category of purchase in natural language
+    - mention the total amount and date naturally
+    - include implicit context a person would understand
+    (e.g. "JB Hi-Fi" → "electronics retailer", "Nando's" → "restaurant / dining out")
+
+    Example output:
+    "Spent $89.95 at JB Hi-Fi, an electronics retailer, on 3 March 2024. 
+    Purchased a Philips Hue smart bulb starter kit — a smart home lighting 
+    product by Philips. This was a electronics purchase in the smart home 
+    sub-category."
+    """.format(document_type=document_type)
+
+            user_msg = f"Extracted JSON:\n{json.dumps(extracted, indent=2)}\n\n"
+
+            summary = await self.chat(
+                model=self.extractor_model,
+                prompt=user_msg,
+                system=system_msg
+            )
+            return summary.strip()
 
     async def review(self, extracted: dict, document_type: str) -> dict:
         template = self._load_extraction_prompt(document_type=document_type)
@@ -190,6 +243,8 @@ class LlmProxy:
         system_msg = (
             "You are a query classifier assistant."
             "Your task is to analyze the user's query and determine all document types that could potentially match the users query"
+            "It is better to return more possible matches than miss a relevant or even related document type."
+            "If the query is very general and could apply to any document type, return all document types."
             f"The possible document types are: {', '.join(document_types)}"
             "Return a JSON array of ALL matching document types in lowercase. Example: [\"receipt\", \"bill\"]. No explanations, no markdown."
         )
@@ -226,6 +281,50 @@ class LlmProxy:
         except ValueError:
             return 5  # default value if parsing fails
 
+
+    async def answer_question(self, question: str, scored_points: list) -> str:
+        ANSWER_PROMPT = """
+        You are a personal finance assistant. Answer the user's question using ONLY 
+        the receipts provided below.
+
+        Rules:
+        - Only use information explicitly present in the receipts
+        - If the receipts don't contain enough information to answer, say so clearly
+        - Do not guess, infer, or use outside knowledge
+        - If asked for a total or average, calculate it from the receipt amounts provided
+        - Cite which receipt(s) you're drawing from in your answer
+
+        RECEIPTS:
+        {context}
+
+        USER QUESTION:
+        {question}
+        """
+        deduped = self.deduplicate(scored_points)
+        context = "\n\n".join([
+            f"Receipt {i+1}:\n{json.dumps(point.payload, indent=2)}"
+            for i, point in enumerate(deduped)
+        ])
+        
+        response = litellm.completion(
+            #model="gemini/gemini-2.5-flash",
+            model=self.extractor_model,
+            messages=[
+                {"role": "system", "content": ANSWER_PROMPT.format(
+                    context=context,
+                    question=question
+                )}
+            ]
+        )
+        return response.choices[0].message.content
+
+    def deduplicate(self, scored_points: list) -> list:
+        seen = {}
+        for point in scored_points:
+            source_id = point.payload["document_id"]
+            if source_id not in seen or point.score > seen[source_id].score:
+                seen[source_id] = point  # keep highest scoring point per receipt
+        return list(seen.values())
 
     async def get_filters(self, query: str, document_types: List[str]) -> dict:
         document_type = document_types[0]
@@ -311,6 +410,7 @@ Example output:
                 "must": {
                     "type": "array",
                     "minItems": 1,
+                    "maxItems": 1,
                     "items": {
                         "type": "object",
                         "additionalProperties": False,
@@ -420,7 +520,7 @@ if __name__ == "__main__":
             #"extractor": "gemini/gemini/gemini-2.5-flash",
             #"extractor": "openai/qwen3",
             #"extractor": "openai/nous-hermes-2-pro",
-            "extractor": "fireworks_ai/accounts/fireworks/models/gpt-oss-120b",
+            "extractor": "openai/qwen3",
             "reviewer": "openai/falcon-7b",
             "embedding": "openai/nomic-embed-text"
         })

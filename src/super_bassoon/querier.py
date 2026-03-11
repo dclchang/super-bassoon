@@ -1,4 +1,5 @@
 import asyncio
+import json
 from super_bassoon.paperless import PaperlessNgx
 from super_bassoon.llmproxy import LlmProxy
 from qdrant_client import QdrantClient
@@ -45,15 +46,20 @@ async def main():
                    models={
                     #"extractor": "gemini/gemini/gemini-2.5-flash",
                     #"extractor": "openai/claude-gemini-12",
-                    "extractor": "openai/nous-hermes-2-pro",
+                    #"extractor": "openai/nous-hermes-2-pro",
+                    #"extractor": "openai/mistral-nemo",
+                    "extractor": "openai/qwen25-7",
                     "reviewer": "openai/falcon-7b",
                     "embedding": "openai/nomic-embed-text"
         })
     client = QdrantClient(url="http://192.168.68.222:6333")
 
     querier = Querier(llmproxy=llm, vectordb=client, paperless=paperless)
-    #results = await querier.query("I remember going to a clinic at Anchorvale. How much did I pay for the consultation?")    
-    results = await querier.query("How much have I paid for Aussie Broadband last year?")
+    question = "I remember going to a clinic at Anchorvale. How much did I pay for the consultation?"
+    # question = "When did I buy the Sony TV?"
+    results = await querier.query(question)
+    answer = await querier.llm.answer_question(question, results)
+    print(f"Answer: {answer}")
     client.close()
 
 if __name__ == "__main__":

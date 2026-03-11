@@ -15,6 +15,13 @@ class VectorDb:
                 vectors_config=VectorParams(size=768, distance=Distance.COSINE),
             )
 
+    def upsert_batch(self, collection_name: str, points: list):
+        self._check_collection(collection_name)
+        self.client.upsert(
+            collection_name=collection_name,
+            points=[ PointStruct(id=p["id"], vector=p["vector"], payload=p["payload"]) for p in points ]
+        )
+
     def upsert(self, vector: list[float], payload: dict, collection_name: str):
         qdrant_id = str(uuid.uuid5(self.namespace, str(payload["document_id"])))
         self._check_collection(collection_name)

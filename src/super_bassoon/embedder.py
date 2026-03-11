@@ -1,5 +1,7 @@
 import asyncio
 import json
+import hashlib
+import uuid
 from super_bassoon.models.base import db
 from super_bassoon.models.document import Document
 from super_bassoon.op import get_secret
@@ -13,6 +15,10 @@ class Embedder:
         self.llm = llmproxy
         self.vectordb = vectordb
 
+    def _generate_id(self, source_id: int, point_type: str, index: int = 0) -> str:
+        raw = f"{source_id}_{point_type}_{index}"
+        return str(uuid.UUID(hashlib.md5(raw.encode()).hexdigest()))
+
     async def _process_document(self, document: Document) -> None:
         doc_id = document.id
         doc_type = str(document.document_type)
@@ -25,18 +31,40 @@ class Embedder:
             content = str(document.content)
             extraction = await self.llm.extract(document=json.loads(content), document_type=doc_type)
 
-            review = await self.llm.review(extracted=extraction, document_type=doc_type)
+            #review = await self.llm.review(extracted=extraction, document_type=doc_type)
             summary = await self.llm.summarise(extracted=extraction, document_type=doc_type)
+            questions = await self.llm.generate_questions(summary=summary)  # just added
 
-            vector = await self.llm.vectorise(text=summary)
-            self.vectordb.upsert(vector=vector, payload=extraction,
-                collection_name="my_collection"
-            )
+            points = []
+            summary_vector = await self.llm.vectorise(text=summary)
+            points.append({
+                "id": self._generate_id(source_id=document.id, point_type="summary"),
+                "vector": summary_vector,
+                "payload": {
+                    **extraction,
+                    "text": summary,
+                    "point_type": "summary",
+                }
+            })
+
+            for idx, question in enumerate(questions):
+                question_vector = await self.llm.vectorise(text=question)
+                points.append({
+                    "id": self._generate_id(source_id=document.id, point_type="question", index=idx),
+                    "vector": question_vector,
+                    "payload": {
+                        **extraction,
+                        "text": question,
+                        "point_type": "question",
+                    }
+                })
+
+            self.vectordb.upsert_batch(collection_name="my_collection", points=points)
 
             with db.atomic():
                 document.status = "processed"
-                document.score = review["score"]
-                document.score_reason = json.dumps(review["issues"])
+                #document.score = review["score"]
+                #document.score_reason = json.dumps(review["issues"])
                 document.structured_content = extraction
                 document.summary = summary
                 document.save()
@@ -52,7 +80,8 @@ class Embedder:
     async def embed(self):
         dt = "receipt"
         pending_documents = list(
-            Document.select().where((Document.status in ['pending', 'processing']) & (Document.document_type == dt))
+            Document.select().where(
+                (Document.status.in_(['pending', ])) & (Document.document_type == dt))   # type: ignore
         )
 
         if not pending_documents:
@@ -61,7 +90,8 @@ class Embedder:
 
         print(f"Found {len(pending_documents)} pending documents, processing with semaphore throttling...")
 
-        await asyncio.gather(*[self._process_document(doc) for doc in pending_documents])
+        for doc in pending_documents:
+            await self._process_document(doc)
 
         print("All documents processed")
 
@@ -74,7 +104,10 @@ async def main():
         base_url="http://192.168.68.222:4040",
         api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
         models={
-            "extractor": "openai/claude-gemini-12",
+            #"extractor": "openai/claude-gemini-12",
+            #"extractor": "openai/mistral-nemo",
+            #"extractor": "gemini/gemini/gemini-2.5-flash",
+            "extractor": "openai/qwen25-7",
             "reviewer": "openai/falcon-7b",
             "embedding": "openai/nomic-embed-text"
         },
