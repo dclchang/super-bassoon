@@ -3,7 +3,7 @@ import datetime
 import json
 import re
 from pathlib import Path
-from qdrant_client.models import ScoredPoint
+from qdrant_client.models import ScoredPoint, Filter
 from string import Template
 from typing import Dict, List, Optional, Union, cast
 
@@ -316,7 +316,7 @@ Return ONLY a JSON array of 5 strings, no additional text, explanation or markdo
                 )}
             ]
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content  # type: ignore
 
     def deduplicate(self, scored_points: list) -> list:
         seen = {}
@@ -326,7 +326,7 @@ Return ONLY a JSON array of 5 strings, no additional text, explanation or markdo
                 seen[source_id] = point  # keep highest scoring point per receipt
         return list(seen.values())
 
-    async def get_filters(self, query: str, document_types: List[str]) -> dict:
+    async def get_filters(self, query: str, document_types: List[str]) -> Filter:
         document_type = document_types[0]
         #schema = self._load_schema(document_type=document_type)
         today = datetime.date.today().isoformat()

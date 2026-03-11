@@ -8,6 +8,7 @@ from super_bassoon.op import get_secret
 from super_bassoon.llmproxy import LlmProxy
 from super_bassoon.paperless import PaperlessNgx
 from super_bassoon.vectordb import VectorDb
+from typing import cast
 
 
 class Embedder:
@@ -38,7 +39,7 @@ class Embedder:
             points = []
             summary_vector = await self.llm.vectorise(text=summary)
             points.append({
-                "id": self._generate_id(source_id=document.id, point_type="summary"),
+                "id": self._generate_id(source_id=document.id, point_type="summary"),   # type: ignore
                 "vector": summary_vector,
                 "payload": {
                     **extraction,
@@ -50,7 +51,7 @@ class Embedder:
             for idx, question in enumerate(questions):
                 question_vector = await self.llm.vectorise(text=question)
                 points.append({
-                    "id": self._generate_id(source_id=document.id, point_type="question", index=idx),
+                    "id": self._generate_id(source_id=document.id, point_type="question", index=idx),   # type: ignore
                     "vector": question_vector,
                     "payload": {
                         **extraction,
