@@ -164,17 +164,15 @@ class Retriever:
             filter = self.resolve_filter_field(filter, resolvable, top_matches)
         return filter
     
+async def main():
+    paperless = PaperlessNgx(
+            base_url="http://192.168.68.222:8000", 
+            api_key=get_secret("op://homelab/paperless-api-token/credential"))
+    retriever = Retriever(paperless=paperless)
+    await retriever.retrieve()
+    await paperless.close()
 
 
 if __name__ == "__main__":
-    import asyncio
-    async def main():
-        paperless = PaperlessNgx(
-             base_url="http://192.168.68.222:8000", 
-             api_key=get_secret("op://homelab/paperless-api-token/credential"))
-        retriever = Retriever(paperless=paperless)
-        await retriever.retrieve()
-        await paperless.close()
-    
     asyncio.run(main())
 
