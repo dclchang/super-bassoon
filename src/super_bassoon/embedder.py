@@ -4,6 +4,7 @@ import hashlib
 import uuid
 from super_bassoon.models.base import db
 from super_bassoon.models.document import Document
+from super_bassoon.models.point import Point
 from super_bassoon.op import get_secret
 from super_bassoon.llmproxy import LlmProxy
 from super_bassoon.paperless import PaperlessNgx
@@ -48,6 +49,14 @@ class Embedder:
                 }
             })
 
+            Point.create(
+                document_id=document.id,
+                point_id=f"{document.id}_summary_{0}",
+                point_id_uuid=self._generate_id(source_id=document.id, point_type="summary"),  # type: ignore
+                point_type="summary",
+                text=summary
+            )
+
             for idx, question in enumerate(questions):
                 question_vector = await self.llm.vectorise(text=question)
                 points.append({
@@ -59,6 +68,13 @@ class Embedder:
                         "point_type": "question",
                     }
                 })
+                Point.create(
+                    document_id=document.id,
+                    point_id=f"{document.id}_question_{idx}",
+                    point_id_uuid=self._generate_id(source_id=document.id, point_type="question", index=idx),  # type: ignore
+                    point_type="question",
+                    text=question)
+
 
             self.vectordb.upsert_batch(collection_name="my_collection", points=points)
 
@@ -105,9 +121,6 @@ async def main():
         base_url="http://192.168.68.222:4040",
         api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
         models={
-            #"extractor": "openai/claude-gemini-12",
-            #"extractor": "openai/mistral-nemo",
-            #"extractor": "gemini/gemini/gemini-2.5-flash",
             "extractor": "openai/qwen25-7",
             "reviewer": "openai/falcon-7b",
             "embedding": "openai/nomic-embed-text"

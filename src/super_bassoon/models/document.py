@@ -20,6 +20,3 @@ class Document(BaseModel):
 
     class Meta:
         table_name = "documents"
-
-db.connect()
-db.create_tables([Document], safe=True)

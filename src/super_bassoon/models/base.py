@@ -3,6 +3,19 @@ import json
 
 db = peewee.SqliteDatabase('super_bassoon.db')
 
+_initialized = False
+
+
+def _ensure_db():
+    global _initialized
+    if not _initialized:
+        db.connect()
+        from .document import Document
+        from .point import Point
+        db.create_tables([Document, Point], safe=True)
+        _initialized = True
+
+
 class BaseModel(peewee.Model):
     class Meta:
         database = db
@@ -24,4 +37,7 @@ class JsonField(peewee.TextField):
             return json.loads(value)
         except json.JSONDecodeError:
             return value  # If it's not valid JSON, return the raw value
+
+
+_ensure_db()
 
