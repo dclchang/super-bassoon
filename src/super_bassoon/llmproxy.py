@@ -177,24 +177,34 @@ Return ONLY a JSON array of 5 strings, no additional text, explanation or markdo
 
     async def summarise(self, extracted: dict, document_type: str) -> str:
             system_msg = """
-    You are a summarisation assistant. Your task is to take structured JSON data that has been extracted 
-    from a document and write a 3-4 sentence plain English description.
+You are a summarisation assistant. Your task is to take structured JSON data that has been extracted 
+from a document and write a 3-4 sentence plain English description.
 
-    Rules:
-    - mention the vendor and any brand names of products purchased
-    - describe what the items actually ARE, not just their names
-    (e.g. "Philips Hue" → "Philips Hue smart lighting / smart bulb")
-    - include the category of purchase in natural language
-    - mention the total amount and date naturally
-    - include implicit context a person would understand
-    (e.g. "JB Hi-Fi" → "electronics retailer", "Nando's" → "restaurant / dining out")
+Rules:
+- mention the vendor and any brand names of products purchased
+- describe what the items actually ARE, not just their names
+  (e.g. "Philips Hue" → "Philips Hue smart lighting / smart bulb")
+- include the category of purchase in natural language
+- mention the total amount and date naturally
+- include implicit context a person would understand
+  (e.g. "JB Hi-Fi" → "electronics retailer", "Nando's" → "restaurant / dining out")
+- apply reasonable inferences where product names or model codes imply a well-known brand, 
+  product type, or product family:
+    - use "is" when the inference is near-certain 
+      (e.g. Sony KDL prefix → "is a Sony Bravia television")
+    - use "likely" when the inference is strong but not definitive 
+      (e.g. "Chronomat" → "is likely a Breitling watch")
+  Do not infer speculatively — only apply inferences you are highly confident in.
 
-    Example output:
-    "Spent $89.95 at JB Hi-Fi, an electronics retailer, on 3 March 2024. 
-    Purchased a Philips Hue smart bulb starter kit — a smart home lighting 
-    product by Philips. This was a electronics purchase in the smart home 
-    sub-category."
-    """.format(document_type=document_type)
+Example output:
+"Spent $3,200 at Prouds Jewellers on 14 June 2023. Purchased a Chronomat, 
+which is likely a Breitling luxury watch. Prouds is a jewellery and watch retailer. 
+This was a luxury goods purchase in the watches sub-category."
+
+"Spent $749 at Harvey Norman, an electronics retailer, on 3 March 2024. 
+Purchased a Sony KDL42W670A, which is a Sony Bravia 42-inch Full HD LED television. 
+This was an electronics purchase in the televisions sub-category."
+""".format(document_type=document_type)
 
             user_msg = f"Extracted JSON:\n{json.dumps(extracted, indent=2)}\n\n"
 
@@ -284,22 +294,37 @@ Return ONLY a JSON array of 5 strings, no additional text, explanation or markdo
 
     async def answer_question(self, question: str, scored_points: list) -> str:
         ANSWER_PROMPT = """
-        You are a personal finance assistant. Answer the user's question using ONLY 
-        the receipts provided below.
+You are a personal finance assistant. Answer the user's question using ONLY 
+the receipts provided below.
 
-        Rules:
-        - Only use information explicitly present in the receipts
-        - If the receipts don't contain enough information to answer, say so clearly
-        - Do not guess, infer, or use outside knowledge
-        - If asked for a total or average, calculate it from the receipt amounts provided
-        - Cite which receipt(s) you're drawing from in your answer
+Rules:
+- Use information present in the receipts even if it doesn't exactly match 
+  the user's wording — the user may refer to a product by brand, nickname, 
+  or common name while the receipt describes it differently
+- If the receipts clearly relate to what the user is asking about based on 
+  vendor, date, category, or description — use that information to answer
+- include implicit context a person would understand
+  (e.g. "JB Hi-Fi" → "electronics retailer", "Nando's" → "restaurant / dining out")
+- apply reasonable inferences where product names or model codes imply a well-known brand, 
+  product type, or product family:
+    - use "is" when the inference is near-certain 
+      (e.g. Sony KDL prefix → "is a Sony Bravia television")
+    - use "likely" when the inference is strong but not definitive 
+      (e.g. "Chronomat" → "is likely a Breitling watch")
+  Do not infer speculatively — only apply inferences you are highly confident in.
+- Do not refuse to answer just because a specific word or brand name isn't 
+  present — reason about what you have
+- If the receipts genuinely don't contain enough information to answer, 
+  say so and explain what information is missing
+- If asked for a total or average, calculate it from the receipt amounts provided
+- Cite which receipt(s) you're drawing from in your answer
 
-        RECEIPTS:
-        {context}
+RECEIPTS:
+{context}
 
-        USER QUESTION:
-        {question}
-        """
+USER QUESTION:
+{question}
+"""
         deduped = self.deduplicate(scored_points)
         context = "\n\n".join([
             f"Receipt {i+1}:\n{json.dumps(point.payload, indent=2)}"

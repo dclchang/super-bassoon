@@ -29,7 +29,7 @@ class Querier:
             self.vectordb.query_points,
             collection_name="my_collection",
             query=vector, query_filter=filter,
-            limit=k
+            limit=10, score_threshold=0.7
         )
         rets = [ f for f in results.points if f.score >= 0.7 ]
         print(f">>> Done! Found {len(rets)} results")
@@ -44,10 +44,6 @@ async def main():
     llm = LlmProxy(base_url="http://192.168.68.222:4040",
                    api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
                    models={
-                    #"extractor": "gemini/gemini/gemini-2.5-flash",
-                    #"extractor": "openai/claude-gemini-12",
-                    #"extractor": "openai/nous-hermes-2-pro",
-                    #"extractor": "openai/mistral-nemo",
                     "extractor": "openai/qwen25-7",
                     "reviewer": "openai/falcon-7b",
                     "embedding": "openai/nomic-embed-text"
@@ -55,8 +51,7 @@ async def main():
     client = QdrantClient(url="http://192.168.68.222:6333")
 
     querier = Querier(llmproxy=llm, vectordb=client, paperless=paperless)
-    question = "I remember going to a clinic at Anchorvale. How much did I pay for the consultation?"
-    # question = "When did I buy the Sony TV?"
+    question = "When did I buy the Sony Bravia?"
     results = await querier.query(question)
     answer = await querier.llm.answer_question(question, results)
     print(f"Answer: {answer}")
