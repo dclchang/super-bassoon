@@ -251,10 +251,11 @@ This was an electronics purchase in the televisions sub-category."
 
     async def query_classifier(self, query: str, document_types: List[str]) -> List[str]:
         system_msg = (
-            "You are a query classifier assistant."
-            "Your task is to analyze the user's query and determine all document types that could potentially match the users query"
-            "It is better to return more possible matches than miss a relevant or even related document type."
-            "If the query is very general and could apply to any document type, return all document types."
+            "You are a document type brainstorming assistant."
+            "Your task is to list ALL document types that COULD POSSIBLY contain information about the user's query."
+            "Think broadly — a payment for a subscription service could appear as a receipt, bill, invoice, or statement so return ALL of those, not just one."
+            "When in doubt, include it."
+            "It is ALWAYS better to return too many types than too few."
             f"The possible document types are: {', '.join(document_types)}"
             "Return a JSON array of ALL matching document types in lowercase. Example: [\"receipt\", \"bill\"]. No explanations, no markdown."
         )
