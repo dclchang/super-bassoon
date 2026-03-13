@@ -166,7 +166,7 @@ class Retriever:
     
 async def main():
     paperless = PaperlessNgx(
-            base_url="http://192.168.68.222:8000", 
+            base_url=get_secret("op://homelab/paperless-api-token/url"),
             api_key=get_secret("op://homelab/paperless-api-token/credential"))
     retriever = Retriever(paperless=paperless)
     await retriever.retrieve()

@@ -38,10 +38,10 @@ class Querier:
 
 async def main():
     paperless = PaperlessNgx(
-        base_url="http://192.168.68.222:8000",
+        base_url=get_secret("op://homelab/paperless-api-token/url"),
         api_key=get_secret("op://homelab/paperless-api-token/credential"))
 
-    llm = LlmProxy(base_url="http://192.168.68.222:4040",
+    llm = LlmProxy(base_url=get_secret("op://homelab/litellm-virtual-key-for-rag-app/url"),
                    api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
                    models={
                     "extractor": "openai/qwen25-7",

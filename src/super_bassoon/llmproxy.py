@@ -519,42 +519,24 @@ Example output:
 
 async def main():
     paperless = PaperlessNgx(
-        base_url="http://192.168.68.222:8000",
+        base_url=get_secret("op://homelab/paperless-api-token/url"),
         api_key=get_secret("op://homelab/paperless-api-token/credential"))
     llmproxy = LlmProxy(
-        base_url="http://192.168.68.222:4040",
+        base_url=get_secret("op://homelab/litellm-virtual-key-for-rag-app/url"),
         api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
         models={
             "extractor": "openai/claude-gemini-12",
             "reviewer": "openai/falcon-7b",
             "embedding": "openai/nomic-embed-text"
         })
-    classification = await llmproxy.get_filters(
-        query="When was my Aussie Broadband under $100?",
-        document_types=["receipt"]
-    )
-    print(classification)
-    await paperless.close()
-
-if __name__ == "__main__":
-    #asyncio.run(main())
-    llmproxy = LlmProxy(
-        base_url="http://192.168.68.222:4040",
-        api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
-        models={
-            #"extractor": "openai/claude-gemini-12",
-            #"extractor": "gemini/gemini/gemini-2.5-flash",
-            #"extractor": "openai/qwen3",
-            #"extractor": "openai/nous-hermes-2-pro",
-            "extractor": "openai/qwen3",
-            "reviewer": "openai/falcon-7b",
-            "embedding": "openai/nomic-embed-text"
-        })
-    response = llmproxy.chatsync(
+    response = llmproxy.chat(
         model=llmproxy.extractor_model,
         prompt="How are you?",
         system=(
             "You are a helpful assistant that answers questions truthfully and informatively. "
         ))
     print(response)
+    await paperless.close()
 
+if __name__ == "__main__":
+    asyncio.run(main())

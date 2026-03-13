@@ -19,7 +19,7 @@ class PaperlessNgx:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def _get_all_pages(self, url: str, params: dict = None) -> List[Dict]:
+    async def _get_all_pages(self, url: str, params: dict = {}) -> List[Dict]:
         results = []
         params = params or {}
         session = await self._get_session()

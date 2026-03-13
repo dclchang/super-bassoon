@@ -9,7 +9,6 @@ from super_bassoon.op import get_secret
 from super_bassoon.llmproxy import LlmProxy
 from super_bassoon.paperless import PaperlessNgx
 from super_bassoon.vectordb import VectorDb
-from typing import cast
 
 
 class Embedder:
@@ -114,11 +113,11 @@ class Embedder:
 
 async def main():
     paperless = PaperlessNgx(
-        base_url="http://192.168.68.222:8000",
+        base_url=get_secret("op://homelab/paperless-api-token/url"),
         api_key=get_secret("op://homelab/paperless-api-token/credential"))
 
     llmproxy = LlmProxy(
-        base_url="http://192.168.68.222:4040",
+        base_url=get_secret("op://homelab/litellm-virtual-key-for-rag-app/url"),
         api_key=get_secret("op://homelab/litellm-virtual-key-for-rag-app/credential"),
         models={
             "extractor": "openai/qwen25-7",
