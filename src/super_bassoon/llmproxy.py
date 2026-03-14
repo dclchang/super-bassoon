@@ -62,7 +62,7 @@ class LlmProxy:
         return content
 
 
-    async def chat(self, model: str, prompt: str, system: str, is_json: bool = False, json_schema: Optional[Dict] = None) -> str:
+    async def chat(self, model: str, prompt: str, system: str, is_json: bool = True, json_schema: Optional[Dict] = None) -> str:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -332,7 +332,7 @@ USER QUESTION:
             for i, point in enumerate(deduped)
         ])
         
-        response = litellm.completion(
+        response = await litellm.acompletion(
             #model="gemini/gemini-2.5-flash",
             model=self.extractor_model,
             messages=[
@@ -358,7 +358,9 @@ USER QUESTION:
         today = datetime.date.today().isoformat()
         system_msg = Template('''
 You are a RAG query planning assistant. Given a natural language question, you must return a JSON object 
-that represents a Qdrant filter. The JSON must conform exactly to the following structure:
+that represents a Qdrant filter. The JSON must conform exactly to the following structure:.
+                              
+DO NOT return your reasoning or thinking process.
 
 {
     "must": [                          # ALL conditions must match (AND)
