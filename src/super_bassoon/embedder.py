@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import hashlib
 import uuid
 from super_bassoon.models.base import db
@@ -9,19 +10,20 @@ from super_bassoon.op import get_secret
 from super_bassoon.llmproxy import LlmProxy
 from super_bassoon.paperless import PaperlessNgx
 from super_bassoon.vectordb import VectorDb
+from super_bassoon.otel import Otel
 
 
 class Embedder:
-    def __init__(self, llmproxy: LlmProxy, vectordb: VectorDb):
+    def __init__(self, llmproxy: LlmProxy, vectordb: VectorDb, logger: logging.Logger):
         self.llm = llmproxy
         self.vectordb = vectordb
+        self.logger = logger
 
     def _generate_id(self, source_id: int, point_type: str, index: int = 0) -> str:
         raw = f"{source_id}_{point_type}_{index}"
         return str(uuid.UUID(hashlib.md5(raw.encode()).hexdigest()))
 
     async def _process_document(self, document: Document) -> None:
-        doc_id = document.id
         doc_type = str(document.document_type)
 
         with db.atomic():
@@ -85,9 +87,9 @@ class Embedder:
                 document.summary = summary
                 document.save()
 
-            print(f"Completed document ID {doc_id}")
+            self.logger.info(f"Completed document ID {document.id}")
         except Exception as e:
-            print(f"Error processing document {doc_id}: {e}")
+            self.logger.error(f"Error processing document {document.id}: {e}")
             with db.atomic():
                 document.status = "failed"
                 document.error = str(e)
@@ -101,17 +103,24 @@ class Embedder:
         )
 
         if not pending_documents:
-            print("No pending documents to process")
+            self.logger.info("No pending documents to process")
             return
 
-        print(f"Found {len(pending_documents)} pending documents, processing with semaphore throttling...")
+        self.logger.info(f"Found {len(pending_documents)} pending documents, processing with semaphore throttling...")
 
         for doc in pending_documents:
             await self._process_document(doc)
 
-        print("All documents processed")
+        self.logger.info("All documents processed")
 
 async def main():
+    logger = Otel(
+        service_name="super-bassoon",
+        host=get_secret("op://homelab/grafana-otel-endpoint/url"),
+        instance_id=get_secret("op://homelab/grafana-otel-endpoint/instance_id"),
+        api_key=get_secret("op://homelab/grafana-otel-endpoint/credential"),
+    )
+
     paperless = PaperlessNgx(
         base_url=get_secret("op://homelab/paperless-api-token/url"),
         api_key=get_secret("op://homelab/paperless-api-token/credential"))
@@ -128,10 +137,7 @@ async def main():
     )
 
     vectordb = VectorDb(base_url="http://192.168.68.222:6333")
-    embedder = Embedder(
-        llmproxy=llmproxy,
-        vectordb=vectordb,
-    )
+    embedder = Embedder(llmproxy=llmproxy, vectordb=vectordb, logger=logger)
     await embedder.embed()
     await paperless.close()
 
