@@ -44,9 +44,10 @@ class Embedder:
                 "id": self._generate_id(source_id=document.id, point_type="summary"),   # type: ignore
                 "vector": summary_vector,
                 "payload": {
-                    **extraction,
-                    "text": summary,
+                    "document_id": document.id,
+                    "document_type": doc_type,
                     "point_type": "summary",
+                    "text": summary,
                 }
             })
 
@@ -64,9 +65,10 @@ class Embedder:
                     "id": self._generate_id(source_id=document.id, point_type="question", index=idx),   # type: ignore
                     "vector": question_vector,
                     "payload": {
-                        **extraction,
-                        "text": question,
+                        "document_id": document.id,
+                        "document_type": doc_type,
                         "point_type": "question",
+                        "text": question,
                     }
                 })
                 Point.create(
