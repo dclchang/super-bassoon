@@ -140,19 +140,24 @@ class LlmProxy:
         system_msg = """
 You are a helpful assistant that generates questions based on a receipt summary.
 
-Given a receipt summary, generate 5 different questions that a person might ask 
+Given a receipt summary, generate 6-8 different questions that a person might ask 
 when trying to find THIS specific receipt from their personal expense history.
 
 Each question must:
-- Be specific enough that only this receipt would be a good answer
-- Reference the specific vendor, service type, brand, or product where relevant
-- Cover a MIX of specific recall ("STIHL brushcutter at Five Ways") and 
-  broader recall ("outdoor power tools", "garden machinery") — not all five 
-  questions should reference the vendor name
+- Capture the key distinguishing information that helps identify this receipt 
+  among similar purchases (brand, vendor, product type, category, or time period)
+- Cover a MIX of recall styles:
+  - Specific recall: "STIHL brushcutter at Five Ways"
+  - Brand-only: "Breitling", "Apple" 
+  - Brand + category: "Sony TV", "Apple laptop", "Bunnings"
+  - Category: "outdoor power tools", "luxury watches"
+- Include 2-3 questions that use ONLY the brand name without additional context,
+  as users often search this way (e.g., "Breitling", "Bunnings")
 - Reflect natural conversational language a person uses when recalling a purchase
-  e.g. "my internet bill", "Aussie Broadband payment", "monthly broadband cost"
+  e.g. "How much was my Felix mobile phone bill?", "What did I pay Aussie Broadband for in November 2025?", 
+    "When did I buy the iPad and who did I buy it from?", "Find all the subscription payments for Crashplan"
 - Where dates are involved, use specific dates or time frames from the summary
-  e.g. "in November 2024" rather than "last month" or "last October" or "recently"
+  e.g. "in November 2024", "on 5th July 2022" rather than "last month" or "recently"
 
 Avoid:
 - Generic questions like "how much was spent?" or "what company was paid?" 
@@ -162,11 +167,10 @@ Avoid:
 - Retrieval instructions like "can you find..." or "show me..." 
   — phrase as direct questions instead
 
-IF the summary does not contain enough specific information to generate 5 unique questions,
-then generate as fewer but higher quality questions. Aim for a minimum of 2 and a maximum of 5.
+IF the summary does not contain enough specific information to generate 8 unique questions,
+then generate as fewer but higher quality questions. Aim for a minimum of 4.
 
-
-Return ONLY a JSON array of 5 strings, no additional text, explanation or markdown.
+Return ONLY a JSON array of strings, no additional text, explanation or markdown.
 """
         response = await self.chat(
             model=self.extractor_model,

@@ -15,26 +15,27 @@ class Querier:
         self.logger = logger
 
     async def query(self, query: str, top_k: int=5) -> list[ScoredPoint]:
-        self.logger.info(">>> Step 1: vectorise()...")
+        self.logger.info("Processing query: %s", query)
         vector = await self.llm.vectorise(text=query)
-        self.logger.info(">>> Step 2: get_document_types()...")
         document_types = [ dt["name"] for dt in await self.paperless.get_document_types() ]
-        self.logger.info(">>> Step 3: query_classifier()...")
+        
         classifications = await self.llm.query_classifier(query=query, document_types=document_types)
+        self.logger.info("Returned classifications: %s", classifications)
 
-        self.logger.info(">>> Step 4: get_top_k()...")
         k = await self.llm.get_top_k(query=query, document_type=classifications[0] if classifications else "receipt")
-        self.logger.info(">>> Step 5: get_filters()...")
+        self.logger.info("Top K value from LLM: %d", k)
+
         filter = await self.llm.get_filters(query=query, document_types=classifications)
-        self.logger.info(">>> Step 6: query_points()...")
+        self.logger.info("Returned filter: %s", filter)
+
         results = await asyncio.to_thread(
             self.vectordb.query_points,
             collection_name="my_collection",
             query=vector, query_filter=filter,
-            limit=10, score_threshold=0.7
+            limit=20, score_threshold=0.7
         )
         rets = [ f for f in results.points if f.score >= 0.7 ]
-        self.logger.info(f">>> Done! Found {len(rets)} results")
+        self.logger.info(f"Got the following {len(rets)} results from vector DB with score >= 0.7: {[r.payload for r in rets]}")
         return rets
 
 
